@@ -5,10 +5,13 @@ import com.videosummary.bilibili.BilibiliVideoService;
 import com.videosummary.bilibili.SubtitleNotFoundException;
 import com.videosummary.bilibili.dto.SubtitleContent;
 import com.videosummary.bilibili.dto.VideoInfo;
+import com.videosummary.client.PipelineClient;
 import com.videosummary.dto.SubmitResponse;
 import com.videosummary.dto.TaskResponse;
 import com.videosummary.entity.Task;
+import com.videosummary.entity.TaskResult;
 import com.videosummary.mapper.TaskMapper;
+import com.videosummary.mapper.TaskResultMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,35 +28,36 @@ import java.util.regex.Pattern;
 public class TaskService {
 
     private final TaskMapper taskMapper;
+    private final TaskResultMapper taskResultMapper;
     private final BilibiliVideoService bilibiliVideoService;
+    private final PipelineClient pipelineClient;
 
     private static final Pattern BV_PATTERN = Pattern.compile("BV[A-Za-z0-9]+");
     private static final Pattern BILIBILI_URL_PATTERN = Pattern.compile("bilibili\\.com/video/(BV[A-Za-z0-9]+)");
 
-    public TaskService(TaskMapper taskMapper, BilibiliVideoService bilibiliVideoService) {
+    public TaskService(TaskMapper taskMapper, TaskResultMapper taskResultMapper,
+                       BilibiliVideoService bilibiliVideoService, PipelineClient pipelineClient) {
         this.taskMapper = taskMapper;
+        this.taskResultMapper = taskResultMapper;
         this.bilibiliVideoService = bilibiliVideoService;
+        this.pipelineClient = pipelineClient;
     }
 
     public static String parseBvid(String url) {
-        // Check for b23.tv short URLs
         if (url.contains("b23.tv/")) {
             throw new IllegalArgumentException("暂不支持b23.tv短链接，请使用完整BV号");
         }
 
-        // Try full URL pattern first
         Matcher urlMatcher = BILIBILI_URL_PATTERN.matcher(url);
         if (urlMatcher.find()) {
             return urlMatcher.group(1);
         }
 
-        // Try bare BV号
         Matcher bvMatcher = BV_PATTERN.matcher(url);
         if (bvMatcher.matches()) {
             return url;
         }
 
-        // Try finding BV号 anywhere in string
         if (bvMatcher.find()) {
             return bvMatcher.group();
         }
@@ -63,7 +68,6 @@ public class TaskService {
     public SubmitResponse submit(String url) {
         String bvid = parseBvid(url);
 
-        // Check for existing task (deduplication)
         Task existing = taskMapper.selectOne(
                 new LambdaQueryWrapper<Task>()
                         .eq(Task::getUserId, 0L)
@@ -82,11 +86,9 @@ public class TaskService {
                     .build();
         }
 
-        // Get video info from Bilibili
         VideoInfo videoInfo = bilibiliVideoService.getVideoInfo(bvid);
         bilibiliVideoService.validateDuration(videoInfo.getDuration());
 
-        // Create task
         Task task = Task.builder()
                 .userId(0L)
                 .bvid(bvid)
@@ -115,10 +117,23 @@ public class TaskService {
             throw new IllegalArgumentException("任务不存在");
         }
 
-        String subtitleText = null;
-        if (Task.Status.COMPLETED.equals(task.getStatus()) && task.getSubtitleStoragePath() != null) {
+        // Get result content from task_result table
+        String summaryContent = null;
+        List<TaskResult> results = taskResultMapper.selectList(
+                new LambdaQueryWrapper<TaskResult>().eq(TaskResult::getTaskId, taskId)
+        );
+        for (TaskResult r : results) {
+            if (TaskResult.OutputType.SUMMARY.equals(r.getOutputType())) {
+                summaryContent = r.getContent();
+                break;
+            }
+        }
+
+        // Fallback: try reading subtitle file for backward compat
+        if (summaryContent == null && Task.Status.COMPLETED.equals(task.getStatus())
+                && task.getSubtitleStoragePath() != null) {
             try {
-                subtitleText = Files.readString(Path.of(task.getSubtitleStoragePath()));
+                summaryContent = Files.readString(Path.of(task.getSubtitleStoragePath()));
             } catch (IOException e) {
                 log.warn("Failed to read subtitle file: {}", task.getSubtitleStoragePath(), e);
             }
@@ -131,7 +146,7 @@ public class TaskService {
                 .videoDuration(task.getVideoDuration())
                 .coverUrl(task.getCoverUrl())
                 .status(task.getStatus())
-                .subtitleText(subtitleText)
+                .subtitleText(summaryContent)
                 .errorMessage(task.getErrorMessage())
                 .createdAt(task.getCreatedAt())
                 .completedAt(task.getCompletedAt())
@@ -148,7 +163,7 @@ public class TaskService {
         taskMapper.updateById(task);
 
         try {
-            // Re-fetch video info if cid is missing
+            // Step 1: Extract subtitles
             Long cid = task.getCid();
             if (cid == null) {
                 VideoInfo videoInfo = bilibiliVideoService.getVideoInfo(task.getBvid());
@@ -156,7 +171,6 @@ public class TaskService {
                 task.setCid(cid);
             }
 
-            // Extract subtitles
             List<SubtitleContent> subtitles = bilibiliVideoService.extractSubtitles(task.getBvid(), cid);
             String subtitleText = bilibiliVideoService.extractSubtitleText(subtitles);
 
@@ -165,18 +179,64 @@ public class TaskService {
             Files.createDirectories(subtitleDir);
             Path subtitleFile = subtitleDir.resolve(task.getBvid() + ".txt");
             Files.writeString(subtitleFile, subtitleText);
-
             task.setSubtitleStoragePath(subtitleFile.toString());
-            task.setStatus(Task.Status.COMPLETED);
+
+            // Step 2: Call AI pipeline
+            PipelineClient.PipelineResult pipelineResult = pipelineClient.execute(
+                    String.valueOf(taskId), subtitleText
+            );
+
+            // Step 3: Save pipeline results
+            boolean allCompleted = true;
+            for (var entry : pipelineResult.getStepResults().entrySet()) {
+                PipelineClient.PipelineStepResult stepResult = entry.getValue();
+                TaskResult taskResult = TaskResult.builder()
+                        .taskId(taskId)
+                        .outputType(entry.getKey())
+                        .content(stepResult.getContent())
+                        .modelUsed("deepseek-chat")
+                        .outputTokens(stepResult.getTokensUsed())
+                        .status(stepResult.getStatus())
+                        .build();
+                taskResultMapper.insert(taskResult);
+
+                if (!"completed".equals(stepResult.getStatus())) {
+                    allCompleted = false;
+                }
+            }
+
+            // Update task status
+            if (allCompleted) {
+                task.setStatus(Task.Status.COMPLETED);
+            } else {
+                task.setStatus(Task.Status.PARTIALLY_COMPLETED);
+            }
             task.setCompletedAt(java.time.LocalDateTime.now());
+
         } catch (SubtitleNotFoundException e) {
             task.setStatus(Task.Status.FAILED);
             task.setErrorMessage(e.getMessage());
         } catch (Exception e) {
             task.setStatus(Task.Status.FAILED);
             task.setErrorMessage("处理失败：" + e.getMessage());
+            log.error("Task {} processing failed", taskId, e);
         }
 
         taskMapper.updateById(task);
+    }
+
+    public List<Map<String, Object>> getTaskResults(Long taskId) {
+        List<TaskResult> results = taskResultMapper.selectList(
+                new LambdaQueryWrapper<TaskResult>().eq(TaskResult::getTaskId, taskId)
+        );
+        return results.stream().map(r -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("outputType", r.getOutputType());
+            map.put("content", r.getContent());
+            map.put("status", r.getStatus());
+            map.put("modelUsed", r.getModelUsed());
+            map.put("tokensUsed", r.getOutputTokens());
+            return map;
+        }).toList();
     }
 }

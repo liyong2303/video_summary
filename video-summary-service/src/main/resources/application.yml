@@ -21,6 +21,8 @@ mybatis-plus:
 
 app:
   internal-secret: change-me-in-production
+  ai-service:
+    url: http://localhost:8000
   bilibili:
     cookie: your-bilibili-cookie-here
   video:

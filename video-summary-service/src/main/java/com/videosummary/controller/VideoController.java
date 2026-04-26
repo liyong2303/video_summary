@@ -9,6 +9,9 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/video")
@@ -23,10 +26,9 @@ public class VideoController {
     @PostMapping("/submit")
     public ApiResult<SubmitResponse> submit(@RequestBody @Valid SubmitRequest request) {
         SubmitResponse response = taskService.submit(request.getUrl());
-        // After creating the task, process it synchronously (Phase 1 only)
+        // Process the task (extract subtitles + run AI pipeline)
         if (!response.getIsExisting()) {
             taskService.processTask(response.getTaskId());
-            // Re-fetch to get updated status
             TaskResponse updated = taskService.getTask(response.getTaskId());
             response.setStatus(updated.getStatus());
             response.setVideoTitle(updated.getVideoTitle());
@@ -37,5 +39,10 @@ public class VideoController {
     @GetMapping("/{taskId}")
     public ApiResult<TaskResponse> getTask(@PathVariable Long taskId) {
         return ApiResult.success(taskService.getTask(taskId));
+    }
+
+    @GetMapping("/{taskId}/results")
+    public ApiResult<List<Map<String, Object>>> getTaskResults(@PathVariable Long taskId) {
+        return ApiResult.success(taskService.getTaskResults(taskId));
     }
 }

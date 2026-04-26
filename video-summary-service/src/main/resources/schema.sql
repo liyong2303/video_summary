@@ -19,3 +19,16 @@ CREATE TABLE IF NOT EXISTS task (
     INDEX idx_status (status) COMMENT '状态索引',
     INDEX idx_created_at (created_at) COMMENT '创建时间索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务表';
+
+CREATE TABLE IF NOT EXISTS task_result (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    task_id BIGINT NOT NULL COMMENT '任务ID',
+    output_type VARCHAR(20) NOT NULL COMMENT '输出类型: summary/article/card/xiaohongshu',
+    content LONGTEXT COMMENT '生成内容',
+    model_used VARCHAR(50) DEFAULT NULL COMMENT '使用的模型',
+    input_tokens INT DEFAULT NULL COMMENT '输入token数',
+    output_tokens INT DEFAULT NULL COMMENT '输出token数',
+    status VARCHAR(20) NOT NULL DEFAULT 'completed' COMMENT '状态: completed/failed/skipped',
+    INDEX idx_task_id (task_id) COMMENT '任务ID索引',
+    INDEX idx_output_type (output_type) COMMENT '输出类型索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务结果表';
