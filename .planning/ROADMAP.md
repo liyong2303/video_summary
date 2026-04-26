@@ -10,6 +10,13 @@
 
 **Requirements:** BILI-01, BILI-02, BILI-03, BILI-04, BILI-05, BILI-06, TASK-01, TASK-02, TASK-04
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Three-service project skeleton + database schema + health checks
+- [ ] 01-02-PLAN.md — Bilibili wbi signature + video/subtitle extraction module
+- [ ] 01-03-PLAN.md — Task management API + BV号 parsing + Vue frontend
+
 **Success Criteria:**
 1. Vue 3 前端项目可运行，有基础页面布局
 2. Spring Boot 项目可运行，有健康检查端点
