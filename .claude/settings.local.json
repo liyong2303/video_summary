@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"rd /s /q C:\\\\Users\\\\34057\\\\.claude\\\\plugins\\\\marketplaces\\\\thedotmack-claude-mem 2>nul\")",
+      "Skill(plan-eng-review)",
+      "Skill(plan-design-review)",
+      "Bash(start:*)"
+    ]
+  }
+}
