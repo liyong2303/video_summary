@@ -32,3 +32,24 @@ CREATE TABLE IF NOT EXISTS task_result (
     INDEX idx_task_id (task_id) COMMENT '任务ID索引',
     INDEX idx_output_type (output_type) COMMENT '输出类型索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务结果表';
+
+CREATE TABLE IF NOT EXISTS user (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    username VARCHAR(50) NOT NULL COMMENT '用户名',
+    email VARCHAR(100) DEFAULT NULL COMMENT '邮箱',
+    phone VARCHAR(20) DEFAULT NULL COMMENT '手机号',
+    password_hash VARCHAR(200) NOT NULL COMMENT '密码哈希',
+    role VARCHAR(20) NOT NULL DEFAULT 'free' COMMENT '角色: free/paid/admin',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_username (username) COMMENT '用户名唯一',
+    UNIQUE KEY uk_email (email) COMMENT '邮箱唯一'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+
+CREATE TABLE IF NOT EXISTS daily_usage (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    usage_date DATE NOT NULL COMMENT '使用日期',
+    count INT NOT NULL DEFAULT 0 COMMENT '使用次数',
+    UNIQUE KEY uk_user_date (user_id, usage_date) COMMENT '每用户每天唯一'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每日用量表';
