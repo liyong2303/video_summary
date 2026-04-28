@@ -89,6 +89,51 @@ public class PipelineClient {
         public void setTotalDuration(Double totalDuration) { this.totalDuration = totalDuration; }
     }
 
+    /**
+     * Execute a single step of the AI pipeline.
+     */
+    public PipelineResult executeSingleStep(String taskId, String subtitleText, String outputType) {
+        String url = aiServiceUrl + "/pipeline/execute-single";
+
+        Map<String, String> body = new HashMap<>();
+        body.put("task_id", taskId);
+        body.put("subtitle_text", subtitleText);
+        body.put("output_type", outputType);
+
+        var request = org.springframework.http.RequestEntity
+                .post(url)
+                .header("Content-Type", "application/json")
+                .header("X-Internal-Secret", internalSecret)
+                .body(JSONUtil.toJsonStr(body))
+                .build();
+
+        try {
+            String response = restTemplate.exchange(request, String.class).getBody();
+            JSONObject json = JSONUtil.parseObj(response);
+
+            PipelineResult result = new PipelineResult();
+            result.setTaskId(json.getStr("task_id"));
+
+            // Single step response has the step directly
+            JSONObject stepObj = json.getJSONObject("step");
+            if (stepObj != null) {
+                PipelineStepResult stepResult = new PipelineStepResult();
+                stepResult.setName(outputType);
+                stepResult.setStatus(stepObj.getStr("status"));
+                stepResult.setContent(stepObj.getStr("content"));
+                stepResult.setTokensUsed(stepObj.getInt("tokens_used", 0));
+                stepResult.setError(stepObj.getStr("error"));
+                stepResult.setDuration(stepObj.getDouble("duration", 0.0));
+                result.getStepResults().put(outputType, stepResult);
+            }
+
+            return result;
+        } catch (Exception e) {
+            log.error("Failed to call AI pipeline single step: {}", e.getMessage(), e);
+            throw new RuntimeException("AI管线单步调用失败: " + e.getMessage(), e);
+        }
+    }
+
     public static class PipelineStepResult {
         private String name;
         private String status;

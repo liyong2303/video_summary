@@ -8,8 +8,10 @@ const loading = ref(false)
 const result = ref<any>(null)
 const taskResult = ref<any>(null)
 const results = ref<Record<string, string>>({})
+const streamingStep = ref('')
 const activeTab = ref('summary')
 const error = ref('')
+const isStreaming = ref(false)
 
 function copyText(text: string) {
   navigator.clipboard.writeText(text)
@@ -29,6 +31,27 @@ const tabLabels: Record<string, string> = {
   xiaohongshu: '小红书文案',
 }
 
+const regenerating = ref<string>('')
+
+async function regenerateStep(outputType: string) {
+  if (!result.value) return
+  regenerating.value = outputType
+  try {
+    await axios.post(`/api/video/${result.value.taskId}/regenerate/${outputType}`)
+    await fetchResults(result.value.taskId)
+    ElMessage.success('重新生成完成')
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || '重新生成失败')
+  } finally {
+    regenerating.value = ''
+  }
+}
+
+function exportMarkdown() {
+  if (!result.value) return
+  window.open(`/api/video/${result.value.taskId}/export`, '_blank')
+}
+
 async function submit() {
   if (!url.value.trim()) return
   loading.value = true
@@ -36,20 +59,30 @@ async function submit() {
   result.value = null
   taskResult.value = null
   results.value = {}
+  streamingStep.value = ''
+  isStreaming.value = false
 
   try {
+    // Step 1: Submit and create task
     const res = await axios.post('/api/video/submit', { url: url.value.trim() })
-    if (res.data.code === 0) {
-      result.value = res.data.data
-      // Fetch full task result
-      const taskRes = await axios.get(`/api/video/${result.value.taskId}`)
+    if (res.data.code !== 0) {
+      error.value = res.data.message
+      return
+    }
+    result.value = res.data.data
+    const taskId = result.value.taskId
+
+    // Step 2: Connect SSE stream for real-time results
+    if (!result.value.isExisting) {
+      isStreaming.value = true
+      await connectSSE(taskId)
+    } else {
+      // Existing task, fetch results
+      await fetchResults(taskId)
+      const taskRes = await axios.get(`/api/video/${taskId}`)
       if (taskRes.data.code === 0) {
         taskResult.value = taskRes.data.data
-        // Fetch individual results
-        await fetchResults(result.value.taskId)
       }
-    } else {
-      error.value = res.data.message
     }
   } catch (e: any) {
     if (e.response?.data?.message) {
@@ -59,7 +92,82 @@ async function submit() {
     }
   } finally {
     loading.value = false
+    isStreaming.value = false
   }
+}
+
+function connectSSE(taskId: number): Promise<void> {
+  return new Promise((resolve) => {
+    const eventSource = new EventSource(`/api/video/${taskId}/stream`)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+
+        switch (data.type) {
+          case 'step_start':
+            streamingStep.value = data.step
+            // Initialize empty content for streaming step
+            if (data.step !== 'extract') {
+              results.value[data.step] = ''
+            }
+            // Fetch task info on first step
+            if (!taskResult.value) {
+              fetchTaskInfo(taskId)
+            }
+            break
+
+          case 'chunk':
+            if (data.step && data.step !== 'extract') {
+              results.value[data.step] = (results.value[data.step] || '') + data.content
+            }
+            break
+
+          case 'step_complete':
+            streamingStep.value = ''
+            // After a step completes, fetch full result from server
+            fetchResults(taskId)
+            break
+
+          case 'pipeline_complete':
+            isStreaming.value = false
+            eventSource.close()
+            fetchTaskInfo(taskId)
+            fetchResults(taskId)
+            resolve()
+            break
+
+          case 'error':
+            error.value = data.message || '处理出错'
+            isStreaming.value = false
+            eventSource.close()
+            fetchTaskInfo(taskId)
+            resolve()
+            break
+        }
+      } catch (e) {
+        console.error('Failed to parse SSE data', e)
+      }
+    }
+
+    eventSource.onerror = () => {
+      eventSource.close()
+      // On error, try to fetch results normally
+      fetchTaskInfo(taskId)
+      fetchResults(taskId)
+      isStreaming.value = false
+      resolve()
+    }
+  })
+}
+
+async function fetchTaskInfo(taskId: number) {
+  try {
+    const res = await axios.get(`/api/video/${taskId}`)
+    if (res.data.code === 0) {
+      taskResult.value = res.data.data
+    }
+  } catch {}
 }
 
 async function fetchResults(taskId: number) {
@@ -67,12 +175,12 @@ async function fetchResults(taskId: number) {
     const res = await axios.get(`/api/video/${taskId}/results`)
     if (res.data.code === 0 && res.data.data) {
       for (const r of res.data.data) {
-        results.value[r.outputType] = r.content
+        if (r.content) {
+          results.value[r.outputType] = r.content
+        }
       }
     }
-  } catch {
-    // Results endpoint may not exist yet, that's ok
-  }
+  } catch {}
 }
 </script>
 
@@ -88,6 +196,7 @@ async function fetchResults(taskId: number) {
           placeholder="请输入BV号或B站视频链接..."
           size="large"
           @keyup.enter="submit"
+          :disabled="loading"
         />
         <el-button
           type="primary"
@@ -108,6 +217,13 @@ async function fetchResults(taskId: number) {
         style="margin-top: 16px"
       />
 
+      <!-- Streaming indicator -->
+      <div v-if="isStreaming" class="streaming-indicator">
+        <el-icon class="is-loading"><svg viewBox="0 0 1024 1024" width="16" height="16"><path d="M512 64a32 32 0 0 1 32 32v192a32 32 0 0 1-64 0V96a32 32 0 0 1 32-32z" fill="currentColor"/><path d="M512 736a32 32 0 0 1 32 32v192a32 32 0 1 1-64 0V768a32 32 0 0 1 32-32z" fill="currentColor"/></svg></el-icon>
+        <span v-if="streamingStep">正在生成{{ tabLabels[streamingStep] || streamingStep }}...</span>
+        <span v-else>处理中...</span>
+      </div>
+
       <el-card v-if="taskResult" class="result-card" shadow="never">
         <div class="video-info">
           <el-image
@@ -127,6 +243,12 @@ async function fetchResults(taskId: number) {
 
         <!-- AI Pipeline Results Tabs -->
         <div v-if="Object.keys(results).length > 0" class="results-section">
+          <div class="results-header">
+            <span class="results-title">生成结果</span>
+            <el-button size="small" @click="exportMarkdown">
+              导出 Markdown
+            </el-button>
+          </div>
           <el-tabs v-model="activeTab">
             <el-tab-pane
               v-for="(label, key) in tabLabels"
@@ -140,14 +262,24 @@ async function fetchResults(taskId: number) {
                   <el-button type="primary" size="small" @click="copyText(results[key])">
                     复制
                   </el-button>
+                  <el-button
+                    size="small"
+                    :loading="regenerating === key"
+                    @click="regenerateStep(key)"
+                  >
+                    重新生成
+                  </el-button>
                 </div>
+              </div>
+              <div v-else-if="isStreaming && streamingStep === key" class="tab-streaming">
+                正在生成中...
               </div>
               <div v-else class="tab-empty">该内容类型暂未生成</div>
             </el-tab-pane>
           </el-tabs>
         </div>
 
-        <!-- Fallback: subtitle text if no pipeline results -->
+        <!-- Fallback: subtitle text -->
         <div v-else-if="taskResult.subtitleText" class="subtitle-section">
           <h4>字幕内容</h4>
           <el-input
@@ -201,6 +333,15 @@ async function fetchResults(taskId: number) {
 .input-row .el-input {
   flex: 1;
 }
+.streaming-indicator {
+  margin-top: 16px;
+  color: #00a1d6;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
 .result-card {
   margin-top: 24px;
   text-align: left;
@@ -230,6 +371,16 @@ async function fetchResults(taskId: number) {
   padding-top: 16px;
   border-top: 1px solid #f0f0f0;
 }
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.results-title {
+  font-size: 16px;
+  font-weight: 600;
+}
 .result-text {
   white-space: pre-wrap;
   line-height: 1.7;
@@ -247,6 +398,11 @@ async function fetchResults(taskId: number) {
 }
 .tab-empty {
   color: #999;
+  text-align: center;
+  padding: 40px 0;
+}
+.tab-streaming {
+  color: #00a1d6;
   text-align: center;
   padding: 40px 0;
 }
