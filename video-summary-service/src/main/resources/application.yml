@@ -27,3 +27,12 @@ app:
     cookie: your-bilibili-cookie-here
   video:
     duration-limit-minutes: 30
+
+sa-token:
+  token-name: token
+  timeout: 604800
+  active-timeout: -1
+  is-concurrent: true
+  is-share: true
+  token-style: uuid
+  is-log: false
