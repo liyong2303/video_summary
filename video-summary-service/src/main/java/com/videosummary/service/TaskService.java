@@ -38,16 +38,19 @@ public class TaskService {
     private final TaskResultMapper taskResultMapper;
     private final BilibiliVideoService bilibiliVideoService;
     private final PipelineClient pipelineClient;
+    private final QuotaService quotaService;
 
     private static final Pattern BV_PATTERN = Pattern.compile("BV[A-Za-z0-9]+");
     private static final Pattern BILIBILI_URL_PATTERN = Pattern.compile("bilibili\\.com/video/(BV[A-Za-z0-9]+)");
 
     public TaskService(TaskMapper taskMapper, TaskResultMapper taskResultMapper,
-                       BilibiliVideoService bilibiliVideoService, PipelineClient pipelineClient) {
+                       BilibiliVideoService bilibiliVideoService, PipelineClient pipelineClient,
+                       QuotaService quotaService) {
         this.taskMapper = taskMapper;
         this.taskResultMapper = taskResultMapper;
         this.bilibiliVideoService = bilibiliVideoService;
         this.pipelineClient = pipelineClient;
+        this.quotaService = quotaService;
     }
 
     public static String parseBvid(String url) {
@@ -75,9 +78,16 @@ public class TaskService {
     public SubmitResponse submit(String url) {
         String bvid = parseBvid(url);
 
+        Long userId = quotaService.getCurrentUserId();
+        if (userId == null) userId = 0L;
+        if (userId > 0) {
+            quotaService.checkQuota(userId);
+        }
+        final Long finalUserId = userId;
+
         Task existing = taskMapper.selectOne(
                 new LambdaQueryWrapper<Task>()
-                        .eq(Task::getUserId, 0L)
+                        .eq(Task::getUserId, finalUserId)
                         .eq(Task::getBvid, bvid)
         );
 
@@ -97,7 +107,7 @@ public class TaskService {
         bilibiliVideoService.validateDuration(videoInfo.getDuration());
 
         Task task = Task.builder()
-                .userId(0L)
+                .userId(finalUserId)
                 .bvid(bvid)
                 .cid(videoInfo.getCid())
                 .videoTitle(videoInfo.getTitle())
@@ -106,6 +116,10 @@ public class TaskService {
                 .status(Task.Status.PENDING)
                 .build();
         taskMapper.insert(task);
+
+        if (finalUserId > 0) {
+            quotaService.increment(finalUserId);
+        }
 
         return SubmitResponse.builder()
                 .taskId(task.getId())
@@ -258,10 +272,14 @@ public class TaskService {
     }
 
     public HistoryPage getHistory(int page, int pageSize) {
+        Long userId = quotaService.getCurrentUserId();
+        if (userId == null) userId = 0L;
+        final Long finalUserId = userId;
+
         Page<Task> taskPage = taskMapper.selectPage(
                 new Page<>(page, pageSize),
                 new LambdaQueryWrapper<Task>()
-                        .eq(Task::getUserId, 0L)
+                        .eq(Task::getUserId, finalUserId)
                         .orderByDesc(Task::getCreatedAt)
         );
 
