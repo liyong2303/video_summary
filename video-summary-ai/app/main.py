@@ -5,13 +5,14 @@ from typing import Optional
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.config import settings
 from app.pipeline import (
     StepType,
     StepStatus,
     execute_pipeline,
+    execute_single_step,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -46,7 +47,14 @@ class PipelineRequest(BaseModel):
 class SingleStepRequest(BaseModel):
     task_id: str
     subtitle_text: str
-    output_type: str  # summary / article / card / xiaohongshu
+    output_type: StepType
+
+    @field_validator("subtitle_text")
+    @classmethod
+    def subtitle_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("subtitle_text cannot be empty")
+        return v
 
 
 @app.post("/pipeline/execute")
@@ -165,16 +173,11 @@ async def pipeline_execute_single(
     """Execute a single pipeline step and return result."""
     verify_secret(x_internal_secret)
 
-    from app.pipeline import execute_single_step
-
-    try:
-        step_result = await execute_single_step(
-            task_id=request.task_id,
-            subtitle_text=request.subtitle_text,
-            output_type=request.output_type,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    step_result = await execute_single_step(
+        task_id=request.task_id,
+        subtitle_text=request.subtitle_text,
+        output_type=request.output_type,
+    )
 
     duration = (
         step_result.completed_at - step_result.started_at
