@@ -18,7 +18,17 @@ const router = createRouter({
       name: 'task',
       component: () => import('../views/TaskResultView.vue'),
     },
+    { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue') },
+    { path: '/register', name: 'Register', component: () => import('../views/RegisterView.vue') },
   ],
+})
+
+router.beforeEach((to) => {
+  const token = localStorage.getItem('token')
+  const publicPages = ['/login', '/register']
+  if (!publicPages.includes(to.path) && !token) {
+    return '/login'
+  }
 })
 
 export default router
