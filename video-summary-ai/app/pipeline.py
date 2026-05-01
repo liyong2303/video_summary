@@ -203,3 +203,50 @@ async def execute_pipeline(
         f"{pipeline.completed_at - pipeline.started_at:.1f}s"
     )
     return pipeline
+
+
+async def execute_single_step(
+    task_id: str,
+    subtitle_text: str,
+    output_type: str,
+) -> StepResult:
+    """
+    Execute a single pipeline step.
+    For steps that depend on summary (article/card/xiaohongshu),
+    summary is generated first as a prerequisite.
+    """
+    try:
+        step_type = StepType(output_type)
+    except ValueError:
+        raise ValueError(f"Unknown output_type: {output_type}. Must be one of {[s.value for s in StepType]}")
+
+    subtitle_text = await compress_subtitle(subtitle_text)
+
+    if step_type == StepType.SUMMARY:
+        result = StepResult(step=step_type)
+        system, prompt = summary_prompt(subtitle_text)
+        await _run_step(step_type, prompt, system, result)
+        return result
+
+    # Dependent steps: generate summary first (silently)
+    summary_result = StepResult(step=StepType.SUMMARY)
+    system, prompt = summary_prompt(subtitle_text)
+    await _run_step(StepType.SUMMARY, prompt, system, summary_result)
+
+    if summary_result.status != StepStatus.COMPLETED:
+        result = StepResult(step=step_type)
+        result.status = StepStatus.FAILED
+        result.error = f"Cannot generate {output_type}: summary step failed — {summary_result.error}"
+        result.started_at = time.time()
+        result.completed_at = time.time()
+        return result
+
+    prompt_fns = {
+        StepType.ARTICLE: article_prompt,
+        StepType.CARD: card_prompt,
+        StepType.XIAOHONGSHU: xiaohongshu_prompt,
+    }
+    system, prompt = prompt_fns[step_type](summary_result.content)
+    result = StepResult(step=step_type)
+    await _run_step(step_type, prompt, system, result)
+    return result

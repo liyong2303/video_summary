@@ -43,6 +43,12 @@ class PipelineRequest(BaseModel):
     subtitle_text: str
 
 
+class SingleStepRequest(BaseModel):
+    task_id: str
+    subtitle_text: str
+    output_type: str  # summary / article / card / xiaohongshu
+
+
 @app.post("/pipeline/execute")
 async def pipeline_execute(
     request: PipelineRequest,
@@ -149,3 +155,40 @@ async def pipeline_cancel(task_id: str, x_internal_secret: Optional[str] = Heade
     verify_secret(x_internal_secret)
     # Phase 2: Not implemented yet. Need task tracking with cancellation support.
     return {"task_id": task_id, "cancelled": False}
+
+
+@app.post("/pipeline/execute-single")
+async def pipeline_execute_single(
+    request: SingleStepRequest,
+    x_internal_secret: Optional[str] = Header(None),
+):
+    """Execute a single pipeline step and return result."""
+    verify_secret(x_internal_secret)
+
+    from app.pipeline import execute_single_step
+
+    try:
+        step_result = await execute_single_step(
+            task_id=request.task_id,
+            subtitle_text=request.subtitle_text,
+            output_type=request.output_type,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    duration = (
+        step_result.completed_at - step_result.started_at
+        if step_result.completed_at
+        else 0
+    )
+
+    return {
+        "task_id": request.task_id,
+        "step": {
+            "status": step_result.status.value,
+            "content": step_result.content,
+            "tokens_used": step_result.tokens_used,
+            "error": step_result.error,
+            "duration": duration,
+        },
+    }
