@@ -15,21 +15,25 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(IllegalArgumentException.class)
     public ApiResult<Void> handleIllegalArgument(IllegalArgumentException e) {
         return ApiResult.error(400, e.getMessage());
     }
 
+    @ResponseStatus(HttpStatus.NOT_FOUND)
     @ExceptionHandler(SubtitleNotFoundException.class)
     public ApiResult<Void> handleSubtitleNotFound(SubtitleNotFoundException e) {
         return ApiResult.error(404, e.getMessage());
     }
 
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(VideoTooLongException.class)
     public ApiResult<Void> handleVideoTooLong(VideoTooLongException e) {
         return ApiResult.error(400, e.getMessage());
     }
 
+    @ResponseStatus(HttpStatus.BAD_GATEWAY)
     @ExceptionHandler(BilibiliApiException.class)
     public ApiResult<Void> handleBilibiliApi(BilibiliApiException e) {
         return ApiResult.error(502, "B站API调用失败：" + e.getMessage());
@@ -41,6 +45,7 @@ public class GlobalExceptionHandler {
         return ApiResult.error(429, ex.getMessage());
     }
 
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     @ExceptionHandler(Exception.class)
     public ApiResult<Void> handleGeneral(Exception e) {
         log.error("Unexpected error", e);

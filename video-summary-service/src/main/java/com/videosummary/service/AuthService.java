@@ -17,15 +17,17 @@ import java.time.LocalDate;
 @Service
 public class AuthService {
 
-    private static final int FREE_DAILY_LIMIT = 3;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-
+    private final BCryptPasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final DailyUsageMapper dailyUsageMapper;
+    private final QuotaService quotaService;
 
-    public AuthService(UserMapper userMapper, DailyUsageMapper dailyUsageMapper) {
+    public AuthService(UserMapper userMapper, DailyUsageMapper dailyUsageMapper,
+                       BCryptPasswordEncoder passwordEncoder, QuotaService quotaService) {
         this.userMapper = userMapper;
         this.dailyUsageMapper = dailyUsageMapper;
+        this.passwordEncoder = passwordEncoder;
+        this.quotaService = quotaService;
     }
 
     public String register(String username, String rawPassword) {
@@ -65,7 +67,7 @@ public class AuthService {
             throw new IllegalStateException("用户不存在");
         }
         int todayUsed = getTodayUsed(userId);
-        int dailyLimit = User.Role.FREE.equals(user.getRole()) ? FREE_DAILY_LIMIT : -1;
+        int dailyLimit = quotaService.getDailyLimit(user.getRole());
         return UserInfoResponse.builder()
                 .userId(user.getId())
                 .username(user.getUsername())

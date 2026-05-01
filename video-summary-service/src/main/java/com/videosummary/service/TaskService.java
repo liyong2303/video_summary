@@ -17,6 +17,7 @@ import com.videosummary.mapper.TaskMapper;
 import com.videosummary.mapper.TaskResultMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -75,14 +76,12 @@ public class TaskService {
         throw new IllegalArgumentException("无法识别的视频链接，请输入BV号或B站视频链接");
     }
 
+    @Transactional
     public SubmitResponse submit(String url) {
         String bvid = parseBvid(url);
 
         Long userId = quotaService.getCurrentUserId();
         if (userId == null) userId = 0L;
-        if (userId > 0) {
-            quotaService.checkQuota(userId);
-        }
         final Long finalUserId = userId;
 
         Task existing = taskMapper.selectOne(
@@ -103,6 +102,10 @@ public class TaskService {
                     .build();
         }
 
+        if (finalUserId > 0) {
+            quotaService.checkAndIncrement(finalUserId);  // 检查+自增在同一事务
+        }
+
         VideoInfo videoInfo = bilibiliVideoService.getVideoInfo(bvid);
         bilibiliVideoService.validateDuration(videoInfo.getDuration());
 
@@ -116,10 +119,6 @@ public class TaskService {
                 .status(Task.Status.PENDING)
                 .build();
         taskMapper.insert(task);
-
-        if (finalUserId > 0) {
-            quotaService.increment(finalUserId);
-        }
 
         return SubmitResponse.builder()
                 .taskId(task.getId())

@@ -34,7 +34,9 @@ public class QuotaService {
 
     public void checkQuota(Long userId) {
         User user = userMapper.selectById(userId);
-        if (user == null) return;
+        if (user == null) {
+            throw new IllegalStateException("用户不存在");
+        }
         if (!User.Role.FREE.equals(user.getRole())) return;
 
         DailyUsage usage = dailyUsageMapper.selectOne(
@@ -51,7 +53,32 @@ public class QuotaService {
     }
 
     @Transactional
-    public void increment(Long userId) {
+    public void checkAndIncrement(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new IllegalStateException("用户不存在");
+        }
+        // admin/paid 用户跳过限制，直接记录用量
+        if (!User.Role.FREE.equals(user.getRole())) {
+            doIncrement(userId);
+            return;
+        }
+
+        DailyUsage usage = dailyUsageMapper.selectOne(
+                new LambdaQueryWrapper<DailyUsage>()
+                        .eq(DailyUsage::getUserId, userId)
+                        .eq(DailyUsage::getUsageDate, LocalDate.now())
+        );
+        int count = usage == null ? 0 : usage.getCount();
+        if (count >= FREE_DAILY_LIMIT) {
+            throw new QuotaExceededException(
+                    String.format("今日免费额度已用完（%d/%d），明日0点重置", count, FREE_DAILY_LIMIT)
+            );
+        }
+        doIncrement(userId);
+    }
+
+    private void doIncrement(Long userId) {
         DailyUsage existing = dailyUsageMapper.selectOne(
                 new LambdaQueryWrapper<DailyUsage>()
                         .eq(DailyUsage::getUserId, userId)
@@ -67,6 +94,15 @@ public class QuotaService {
             existing.setCount(existing.getCount() + 1);
             dailyUsageMapper.updateById(existing);
         }
+    }
+
+    @Transactional
+    public void increment(Long userId) {
+        doIncrement(userId);
+    }
+
+    public int getDailyLimit(String role) {
+        return User.Role.FREE.equals(role) ? FREE_DAILY_LIMIT : -1;
     }
 
     @Scheduled(cron = "0 1 0 * * *")
