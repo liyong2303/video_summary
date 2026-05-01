@@ -4,7 +4,14 @@
       "Bash(cmd /c \"rd /s /q C:\\\\Users\\\\34057\\\\.claude\\\\plugins\\\\marketplaces\\\\thedotmack-claude-mem 2>nul\")",
       "Skill(plan-eng-review)",
       "Skill(plan-design-review)",
-      "Bash(start:*)"
+      "Bash(start:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(mvn compile:*)",
+      "Bash(find:*)"
     ]
   }
 }
