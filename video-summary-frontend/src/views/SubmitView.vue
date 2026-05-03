@@ -10,6 +10,7 @@ const result = ref<any>(null)
 const taskResult = ref<any>(null)
 const results = ref<Record<string, string>>({})
 const streamingStep = ref('')
+const loadingMessage = ref('')
 const activeTab = ref('summary')
 const error = ref('')
 const isStreaming = ref(false)
@@ -17,6 +18,15 @@ const editing = ref<Record<string, boolean>>({})
 const unsavedChanges = ref<Record<string, boolean>>({})
 const historyDialogVisible = ref(false)
 const currentOutputType = ref('')
+
+const stepMessages: Record<string, string> = {
+  extract: '正在提取B站字幕...',
+  summary: '正在生成总结...',
+  article: '正在生成文章...',
+  card: '正在生成学习卡片...',
+  xiaohongshu: '正在生成小红书文案...',
+  parallel: '正在并行生成文章、学习卡片、小红书文案...',
+}
 
 function copyText(text: string) {
   navigator.clipboard.writeText(text)
@@ -144,6 +154,11 @@ function connectSSE(taskId: number): Promise<void> {
         switch (data.type) {
           case 'step_start':
             streamingStep.value = data.step
+            if (data.message) {
+              loadingMessage.value = data.message
+            } else {
+              loadingMessage.value = stepMessages[data.step] || '处理中...'
+            }
             // Initialize empty content for streaming step
             if (data.step !== 'extract') {
               results.value[data.step] = ''
@@ -161,7 +176,14 @@ function connectSSE(taskId: number): Promise<void> {
             break
 
           case 'step_complete':
-            streamingStep.value = ''
+            if (data.message) {
+              loadingMessage.value = data.message
+            }
+            // 等待1秒后清空提示
+            setTimeout(() => {
+              streamingStep.value = ''
+              loadingMessage.value = ''
+            }, 1000)
             // After a step completes, fetch full result from server
             fetchResults(taskId)
             break
@@ -257,8 +279,7 @@ async function fetchResults(taskId: number) {
       <!-- Streaming indicator -->
       <div v-if="isStreaming" class="streaming-indicator">
         <el-icon class="is-loading"><svg viewBox="0 0 1024 1024" width="16" height="16"><path d="M512 64a32 32 0 0 1 32 32v192a32 32 0 0 1-64 0V96a32 32 0 0 1 32-32z" fill="currentColor"/><path d="M512 736a32 32 0 0 1 32 32v192a32 32 0 1 1-64 0V768a32 32 0 0 1 32-32z" fill="currentColor"/></svg></el-icon>
-        <span v-if="streamingStep">正在生成{{ tabLabels[streamingStep] || streamingStep }}...</span>
-        <span v-else>处理中...</span>
+        <span>{{ loadingMessage || '处理中...' }}</span>
       </div>
 
       <el-card v-if="taskResult" class="result-card" shadow="never">

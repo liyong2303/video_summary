@@ -108,7 +108,10 @@ public class StreamService {
             taskMapper.updateById(task);
 
             // Step 1: Extract subtitles
-            sendEvent(emitter, "step_start", Map.of("step", "extract"));
+            sendEvent(emitter, "step_start", Map.of(
+                "step", "extract",
+                "message", "正在提取B站字幕..."
+            ));
             Long cid = task.getCid();
             if (cid == null) {
                 VideoInfo videoInfo = bilibiliVideoService.getVideoInfo(task.getBvid());
@@ -127,7 +130,11 @@ public class StreamService {
             task.setSubtitleStoragePath(subtitleFile.toString());
             taskMapper.updateById(task);
 
-            sendEvent(emitter, "step_complete", Map.of("step", "extract", "status", "completed"));
+            sendEvent(emitter, "step_complete", Map.of(
+                "step", "extract",
+                "status", "completed",
+                "message", "字幕提取完成"
+            ));
 
             // Check if cancelled
             if (Boolean.TRUE.equals(cancelledTasks.remove(taskId))) {
