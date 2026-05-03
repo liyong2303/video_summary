@@ -53,3 +53,15 @@ CREATE TABLE IF NOT EXISTS daily_usage (
     count INT NOT NULL DEFAULT 0 COMMENT '使用次数',
     UNIQUE KEY uk_user_date (user_id, usage_date) COMMENT '每用户每天唯一'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每日用量表';
+
+CREATE TABLE IF NOT EXISTS task_result_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    task_result_id BIGINT NOT NULL COMMENT '关联的 task_result.id',
+    task_id BIGINT NOT NULL COMMENT '任务ID（冗余字段，方便查询）',
+    output_type VARCHAR(20) NOT NULL COMMENT '输出类型（冗余字段）',
+    content LONGTEXT COMMENT '内容快照',
+    version INT NOT NULL COMMENT '版本号（从1开始递增）',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_task_result_id (task_result_id),
+    INDEX idx_task_id_output_type (task_id, output_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务结果编辑历史表';
