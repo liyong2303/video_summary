@@ -85,7 +85,7 @@ public class TaskService {
     }
 
     @Transactional
-    public SubmitResponse submit(String url) {
+    public SubmitResponse submit(String url, String style, String length) {
         String bvid = parseBvid(url);
 
         Long userId = quotaService.getCurrentUserId();
@@ -107,6 +107,8 @@ public class TaskService {
                     .coverUrl(existing.getCoverUrl())
                     .status(existing.getStatus())
                     .isExisting(true)
+                    .style(style)
+                    .length(length)
                     .build();
         }
 
@@ -136,6 +138,8 @@ public class TaskService {
                 .coverUrl(videoInfo.getCoverUrl())
                 .status(task.getStatus())
                 .isExisting(false)
+                .style(style)
+                .length(length)
                 .build();
     }
 
@@ -181,7 +185,7 @@ public class TaskService {
                 .build();
     }
 
-    public void processTask(Long taskId) {
+    public void processTask(Long taskId, String style, String length) {
         Task task = taskMapper.selectById(taskId);
         if (task == null) {
             throw new IllegalArgumentException("任务不存在");
@@ -211,7 +215,7 @@ public class TaskService {
 
             // Step 2: Call AI pipeline
             PipelineClient.PipelineResult pipelineResult = pipelineClient.execute(
-                    String.valueOf(taskId), subtitleText
+                    String.valueOf(taskId), subtitleText, style, length
             );
 
             // Step 3: Save pipeline results
@@ -334,7 +338,7 @@ public class TaskService {
 
         // Call pipeline for single step
         PipelineClient.PipelineResult pipelineResult = pipelineClient.executeSingleStep(
-                String.valueOf(taskId), subtitleText, outputType
+                String.valueOf(taskId), subtitleText, outputType, "concise", "standard"
         );
 
         PipelineClient.PipelineStepResult stepResult = pipelineResult.getStepResults().get(outputType);

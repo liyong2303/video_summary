@@ -133,6 +133,8 @@ async def _run_step(
 async def execute_pipeline(
     task_id: str,
     subtitle_text: str,
+    style: str = "concise",
+    length: str = "standard",
     on_chunk=None,
     on_step_start=None,
     on_step_complete=None,
@@ -153,7 +155,7 @@ async def execute_pipeline(
     if on_step_start:
         await on_step_start(StepType.SUMMARY)
 
-    system, prompt = summary_prompt(subtitle_text)
+    system, prompt = summary_prompt(subtitle_text, style, length)
     await _run_step(
         StepType.SUMMARY, prompt, system,
         pipeline.steps[StepType.SUMMARY],
@@ -175,9 +177,9 @@ async def execute_pipeline(
 
     # Steps 2-4: Parallel execution
     parallel_steps = [
-        (StepType.ARTICLE, article_prompt(summary_content)),
-        (StepType.CARD, card_prompt(summary_content)),
-        (StepType.XIAOHONGSHU, xiaohongshu_prompt(summary_content)),
+        (StepType.ARTICLE, article_prompt(summary_content, style, length)),
+        (StepType.CARD, card_prompt(summary_content, style, length)),
+        (StepType.XIAOHONGSHU, xiaohongshu_prompt(summary_content, style, length)),
     ]
 
     async def run_parallel_step(step_type, system_text, prompt_text):
@@ -209,6 +211,8 @@ async def execute_single_step(
     task_id: str,
     subtitle_text: str,
     output_type: StepType,
+    style: str = "concise",
+    length: str = "standard",
 ) -> StepResult:
     """
     Execute a single pipeline step.
@@ -221,7 +225,7 @@ async def execute_single_step(
 
     if step_type == StepType.SUMMARY:
         result = StepResult(step=step_type)
-        system, prompt = summary_prompt(subtitle_text)
+        system, prompt = summary_prompt(subtitle_text, style, length)
         try:
             await asyncio.wait_for(
                 _run_step(step_type, prompt, system, result),
@@ -236,7 +240,7 @@ async def execute_single_step(
 
     # Dependent steps: generate summary first (silently)
     summary_result = StepResult(step=StepType.SUMMARY)
-    system, prompt = summary_prompt(subtitle_text)
+    system, prompt = summary_prompt(subtitle_text, style, length)
     try:
         await asyncio.wait_for(
             _run_step(StepType.SUMMARY, prompt, system, summary_result),
@@ -262,7 +266,7 @@ async def execute_single_step(
         StepType.CARD: card_prompt,
         StepType.XIAOHONGSHU: xiaohongshu_prompt,
     }
-    system, prompt = prompt_fns[step_type](summary_result.content)
+    system, prompt = prompt_fns[step_type](summary_result.content, style, length)
     result = StepResult(step=step_type)
     try:
         await asyncio.wait_for(

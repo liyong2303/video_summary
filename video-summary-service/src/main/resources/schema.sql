@@ -65,3 +65,28 @@ CREATE TABLE IF NOT EXISTS task_result_history (
     INDEX idx_task_result_id (task_result_id),
     INDEX idx_task_id_output_type (task_id, output_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务结果编辑历史表';
+
+CREATE TABLE IF NOT EXISTS user_preference (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    style VARCHAR(20) NOT NULL DEFAULT 'concise' COMMENT '默认风格: academic/casual/concise',
+    length VARCHAR(20) NOT NULL DEFAULT 'standard' COMMENT '默认字数: short/standard/long',
+    output_types JSON COMMENT '默认输出格式: ["summary", "article", "card", "xiaohongshu"]',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户偏好表';
+
+CREATE TABLE IF NOT EXISTS custom_prompt (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    name VARCHAR(100) NOT NULL COMMENT 'Prompt名称',
+    output_type VARCHAR(20) NOT NULL COMMENT '输出类型: summary/article/card/xiaohongshu',
+    system_prompt TEXT COMMENT 'System prompt',
+    user_prompt TEXT COMMENT 'User prompt模板',
+    is_default BOOLEAN DEFAULT FALSE COMMENT '是否为默认Prompt',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_user_id (user_id),
+    INDEX idx_output_type (output_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户自定义Prompt表';

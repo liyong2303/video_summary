@@ -5,6 +5,8 @@ import { ElMessage } from 'element-plus'
 import HistoryDialog from '@/components/HistoryDialog.vue'
 
 const url = ref('')
+const style = ref('concise')
+const length = ref('standard')
 const loading = ref(false)
 const result = ref<any>(null)
 const taskResult = ref<any>(null)
@@ -111,7 +113,11 @@ async function submit() {
 
   try {
     // Step 1: Submit and create task
-    const res = await axios.post('/api/video/submit', { url: url.value.trim() })
+    const res = await axios.post('/api/video/submit', {
+      url: url.value.trim(),
+      style: style.value,
+      length: length.value
+    })
     if (res.data.code !== 0) {
       error.value = res.data.message
       return
@@ -257,11 +263,34 @@ async function fetchResults(taskId: number) {
           @keyup.enter="submit"
           :disabled="loading"
         />
+      </div>
+
+      <div class="options-row">
+        <div class="option-group">
+          <span class="option-label">生成风格：</span>
+          <el-radio-group v-model="style" :disabled="loading">
+            <el-radio-button value="academic">学术严谨</el-radio-button>
+            <el-radio-button value="casual">轻松口语</el-radio-button>
+            <el-radio-button value="concise">干货简洁</el-radio-button>
+          </el-radio-group>
+        </div>
+        <div class="option-group">
+          <span class="option-label">内容长度：</span>
+          <el-radio-group v-model="length" :disabled="loading">
+            <el-radio-button value="short">简短</el-radio-button>
+            <el-radio-button value="standard">标准</el-radio-button>
+            <el-radio-button value="long">详细</el-radio-button>
+          </el-radio-group>
+        </div>
+      </div>
+
+      <div class="submit-row">
         <el-button
           type="primary"
           size="large"
           :loading="loading"
           @click="submit"
+          style="min-width: 200px"
         >
           生成内容
         </el-button>
@@ -435,9 +464,31 @@ async function fetchResults(taskId: number) {
   display: flex;
   gap: 10px;
   justify-content: center;
+  margin-bottom: 16px;
 }
 .input-row .el-input {
   flex: 1;
+}
+.options-row {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.option-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.option-label {
+  font-size: 14px;
+  color: #666;
+  white-space: nowrap;
+}
+.submit-row {
+  display: flex;
+  justify-content: center;
 }
 .streaming-indicator {
   margin-top: 16px;

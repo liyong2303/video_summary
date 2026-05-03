@@ -14,6 +14,16 @@ const router = createRouter({
       component: () => import('../views/HistoryView.vue'),
     },
     {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('../views/SettingsView.vue'),
+    },
+    {
+      path: '/custom-prompts',
+      name: 'custom-prompts',
+      component: () => import('../views/CustomPromptView.vue'),
+    },
+    {
       path: '/task/:id',
       name: 'task',
       component: () => import('../views/TaskResultView.vue'),

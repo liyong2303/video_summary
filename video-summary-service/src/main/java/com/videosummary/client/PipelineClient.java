@@ -34,12 +34,14 @@ public class PipelineClient {
     /**
      * Execute the AI pipeline synchronously and return results.
      */
-    public PipelineResult execute(String taskId, String subtitleText) {
+    public PipelineResult execute(String taskId, String subtitleText, String style, String length) {
         String url = aiServiceUrl + "/pipeline/execute";
 
         Map<String, String> body = new HashMap<>();
         body.put("task_id", taskId);
         body.put("subtitle_text", subtitleText);
+        body.put("style", style);
+        body.put("length", length);
 
         var request = org.springframework.http.RequestEntity
                 .post(url)
@@ -92,13 +94,15 @@ public class PipelineClient {
     /**
      * Execute a single step of the AI pipeline.
      */
-    public PipelineResult executeSingleStep(String taskId, String subtitleText, String outputType) {
+    public PipelineResult executeSingleStep(String taskId, String subtitleText, String outputType, String style, String length) {
         String url = aiServiceUrl + "/pipeline/execute-single";
 
         Map<String, String> body = new HashMap<>();
         body.put("task_id", taskId);
         body.put("subtitle_text", subtitleText);
         body.put("output_type", outputType);
+        body.put("style", style);
+        body.put("length", length);
 
         var request = org.springframework.http.RequestEntity
                 .post(url)

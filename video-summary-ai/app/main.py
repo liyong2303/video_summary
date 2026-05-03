@@ -42,12 +42,16 @@ async def health():
 class PipelineRequest(BaseModel):
     task_id: str
     subtitle_text: str
+    style: str = "concise"  # academic/casual/concise
+    length: str = "standard"  # short/standard/long
 
 
 class SingleStepRequest(BaseModel):
     task_id: str
     subtitle_text: str
     output_type: StepType
+    style: str = "concise"  # academic/casual/concise
+    length: str = "standard"  # short/standard/long
 
     @field_validator("subtitle_text")
     @classmethod
@@ -68,6 +72,8 @@ async def pipeline_execute(
     result = await execute_pipeline(
         task_id=request.task_id,
         subtitle_text=request.subtitle_text,
+        style=request.style,
+        length=request.length,
     )
 
     return {
@@ -126,6 +132,8 @@ async def pipeline_execute_stream(
         result = await execute_pipeline(
             task_id=request.task_id,
             subtitle_text=request.subtitle_text,
+            style=request.style,
+            length=request.length,
             on_step_start=on_step_start,
             on_chunk=on_chunk,
             on_step_complete=on_step_complete,
@@ -177,6 +185,8 @@ async def pipeline_execute_single(
         task_id=request.task_id,
         subtitle_text=request.subtitle_text,
         output_type=request.output_type,
+        style=request.style,
+        length=request.length,
     )
 
     duration = (

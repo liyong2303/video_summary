@@ -17,4 +17,6 @@ public class SubmitResponse {
     private String coverUrl;
     private String status;
     private Boolean isExisting;
+    private String style;  // 新增
+    private String length;  // 新增
 }

@@ -1,9 +1,25 @@
 """Prompt templates for each pipeline step."""
 
+# 风格定义
+STYLE_SYSTEM_PROMPTS = {
+    "academic": "你是一个专业的学术研究者，擅长用严谨、客观、有逻辑的语言总结内容。你的回答应当结构清晰、用词准确、避免主观评价。",
+    "casual": "你是一个轻松友好的内容创作者，擅长用口语化、生动有趣的语言表达观点。你的回答应当亲切自然、像跟朋友聊天一样。",
+    "concise": "你是一个干货提炼专家，擅长用最简洁的语言传递核心信息。你的回答应当直奔主题、删除冗余、突出重点。",
+}
 
-def summary_prompt(subtitle_text: str) -> tuple[str, str]:
+# 字数定义
+LENGTH_INSTRUCTIONS = {
+    "short": "控制输出长度为标准的50%左右，只保留最核心的信息。",
+    "standard": "正常输出，平衡详细度和简洁性。",
+    "long": "扩展输出长度为标准的150%，添加更多细节、案例和背景信息。",
+}
+
+
+def summary_prompt(subtitle_text: str, style: str = "concise", length: str = "standard") -> tuple[str, str]:
     """Step 1: Generate summary from subtitle text."""
-    system = "你是一个专业的视频内容总结助手。你需要从视频字幕中提取核心观点，生成结构化的总结。"
+    system = STYLE_SYSTEM_PROMPTS.get(style, STYLE_SYSTEM_PROMPTS["concise"])
+    system += " " + LENGTH_INSTRUCTIONS.get(length, LENGTH_INSTRUCTIONS["standard"])
+
     prompt = f"""请根据以下视频字幕内容，生成一份结构化的视频总结。
 
 要求：
@@ -17,9 +33,11 @@ def summary_prompt(subtitle_text: str) -> tuple[str, str]:
     return system, prompt
 
 
-def article_prompt(summary: str) -> tuple[str, str]:
+def article_prompt(summary: str, style: str = "concise", length: str = "standard") -> tuple[str, str]:
     """Step 2: Generate article from summary."""
-    system = "你是一个专业的内容创作者，擅长将视频总结扩展为结构清晰的文章。"
+    system = STYLE_SYSTEM_PROMPTS.get(style, STYLE_SYSTEM_PROMPTS["concise"])
+    system += " " + LENGTH_INSTRUCTIONS.get(length, LENGTH_INSTRUCTIONS["standard"])
+
     prompt = f"""请根据以下视频总结，扩展为一篇结构清晰的文章。
 
 要求：
@@ -35,9 +53,11 @@ def article_prompt(summary: str) -> tuple[str, str]:
     return system, prompt
 
 
-def card_prompt(summary: str) -> tuple[str, str]:
+def card_prompt(summary: str, style: str = "concise", length: str = "standard") -> tuple[str, str]:
     """Step 3: Generate learning cards from summary."""
-    system = "你是一个学习教育专家，擅长将知识提炼为便于记忆和复习的学习卡片。"
+    system = STYLE_SYSTEM_PROMPTS.get(style, STYLE_SYSTEM_PROMPTS["concise"])
+    system += " " + LENGTH_INSTRUCTIONS.get(length, LENGTH_INSTRUCTIONS["standard"])
+
     prompt = f"""请根据以下视频总结，生成5-8张学习卡片。
 
 要求：
@@ -57,9 +77,11 @@ def card_prompt(summary: str) -> tuple[str, str]:
     return system, prompt
 
 
-def xiaohongshu_prompt(summary: str) -> tuple[str, str]:
+def xiaohongshu_prompt(summary: str, style: str = "concise", length: str = "standard") -> tuple[str, str]:
     """Step 4: Generate Xiaohongshu (小红书) post from summary."""
-    system = "你是一个小红书内容创作专家，擅长写出吸引眼球、易于传播的笔记。"
+    system = STYLE_SYSTEM_PROMPTS.get(style, STYLE_SYSTEM_PROMPTS["concise"])
+    system += " " + LENGTH_INSTRUCTIONS.get(length, LENGTH_INSTRUCTIONS["standard"])
+
     prompt = f"""请根据以下视频总结，生成一篇小红书笔记。
 
 要求：
@@ -78,9 +100,11 @@ def xiaohongshu_prompt(summary: str) -> tuple[str, str]:
     return system, prompt
 
 
-def compress_prompt(subtitle_text: str) -> tuple[str, str]:
+def compress_prompt(subtitle_text: str, style: str = "concise", length: str = "standard") -> tuple[str, str]:
     """Compress long subtitles before main pipeline."""
-    system = "你是一个文本压缩助手。你需要保留视频字幕的核心信息，去除重复和冗余内容。"
+    system = STYLE_SYSTEM_PROMPTS.get(style, STYLE_SYSTEM_PROMPTS["concise"])
+    system += " " + LENGTH_INSTRUCTIONS.get(length, LENGTH_INSTRUCTIONS["standard"])
+
     prompt = f"""以下是一段过长的视频字幕。请压缩保留核心信息：
 
 要求：

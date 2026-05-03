@@ -40,10 +40,10 @@ public class VideoController {
 
     @PostMapping("/submit")
     public ApiResult<SubmitResponse> submit(@RequestBody @Valid SubmitRequest request) {
-        SubmitResponse response = taskService.submit(request.getUrl());
+        SubmitResponse response = taskService.submit(request.getUrl(), request.getStyle(), request.getLength());
         // Process synchronously for non-SSE clients
         if (!response.getIsExisting()) {
-            taskService.processTask(response.getTaskId());
+            taskService.processTask(response.getTaskId(), response.getStyle(), response.getLength());
             TaskResponse updated = taskService.getTask(response.getTaskId());
             response.setStatus(updated.getStatus());
             response.setVideoTitle(updated.getVideoTitle());

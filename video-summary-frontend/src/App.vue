@@ -8,6 +8,8 @@ const route = useRoute()
 
 const currentNav = computed(() => {
   if (route.path === '/history') return 'history'
+  if (route.path === '/settings') return 'settings'
+  if (route.path === '/custom-prompts') return 'custom-prompts'
   return 'home'
 })
 
@@ -57,6 +59,20 @@ const quotaText = computed(() => {
           @click="router.push('/history')"
         >
           历史记录
+        </span>
+        <span
+          class="nav-link"
+          :class="{ active: currentNav === 'settings' }"
+          @click="router.push('/settings')"
+        >
+          设置
+        </span>
+        <span
+          class="nav-link"
+          :class="{ active: currentNav === 'custom-prompts' }"
+          @click="router.push('/custom-prompts')"
+        >
+          自定义Prompt
         </span>
         <span class="quota-badge" v-if="userInfo && userInfo.dailyLimit !== -1">{{ quotaText }}</span>
         <span class="nav-link" @click="logout">退出</span>
