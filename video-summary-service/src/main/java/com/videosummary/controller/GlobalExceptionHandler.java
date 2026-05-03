@@ -45,6 +45,31 @@ public class GlobalExceptionHandler {
         return ApiResult.error(429, ex.getMessage());
     }
 
+    @ResponseStatus(HttpStatus.REQUEST_TIMEOUT)
+    @ExceptionHandler(org.springframework.web.client.ResourceAccessException.class)
+    public ApiResult<Void> handleRequestTimeout(ResourceAccessException e) {
+        return ApiResult.error(408, "AI 服务请求超时，请稍后重试");
+    }
+
+    @ResponseStatus(HttpStatus.REQUEST_TIMEOUT)
+    @ExceptionHandler(java.util.concurrent.TimeoutException.class)
+    public ApiResult<Void> handleTimeout(TimeoutException e) {
+        return ApiResult.error(408, "处理超时，请稍后重试");
+    }
+
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ApiResult<Void> handleDataAccess(DataAccessException e) {
+        log.error("Database error", e);
+        return ApiResult.error(503, "数据库服务暂时不可用");
+    }
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(cn.dev33.satoken.exception.NotLoginException.class)
+    public ApiResult<Void> handleNotLogin(NotLoginException e) {
+        return ApiResult.error(401, "请先登录");
+    }
+
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     @ExceptionHandler(Exception.class)
     public ApiResult<Void> handleGeneral(Exception e) {
