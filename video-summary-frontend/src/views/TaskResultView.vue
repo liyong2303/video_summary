@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import HistoryDialog from '@/components/HistoryDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,6 +12,10 @@ const results = ref<Record<string, string>>({})
 const loading = ref(true)
 const activeTab = ref('summary')
 const regenerating = ref<string>('')
+const editing = ref<Record<string, boolean>>({})
+const unsavedChanges = ref<Record<string, boolean>>({})
+const historyDialogVisible = ref(false)
+const currentOutputType = ref('')
 
 let pollTimer: any = null
 
@@ -81,6 +86,38 @@ function exportMarkdown() {
   window.open(`/api/video/${id}/export`, '_blank')
 }
 
+async function saveEdit(outputType: string) {
+  try {
+    const id = route.params.id
+    await axios.put(`/api/video/${id}/result/${outputType}`, {
+      content: results.value[outputType]
+    })
+    unsavedChanges.value[outputType] = false
+    editing.value[outputType] = false
+    ElMessage.success('保存成功')
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || '保存失败')
+  }
+}
+
+// 检测内容变化
+watch(() => results.value, (newVal, oldVal) => {
+  for (const key in newVal) {
+    if (oldVal[key] !== newVal[key]) {
+      unsavedChanges.value[key] = true
+    }
+  }
+}, { deep: true })
+
+function showHistory(outputType: string) {
+  currentOutputType.value = outputType
+  historyDialogVisible.value = true
+}
+
+function handleRollback() {
+  fetchResults()
+}
+
 onMounted(() => {
   fetchTask()
   fetchResults()
@@ -144,9 +181,44 @@ onUnmounted(() => {
             :name="key"
           >
             <div v-if="results[key]" class="tab-content">
-              <div class="result-text">{{ results[key] }}</div>
+              <el-input
+                v-model="results[key]"
+                type="textarea"
+                :rows="15"
+                placeholder="点击编辑按钮修改内容..."
+                :readonly="!editing[key]"
+                @input="unsavedChanges[key] = true"
+              />
               <div class="result-actions">
-                <el-button type="primary" size="small" @click="copyText(results[key])">
+                <el-button
+                  v-if="!editing[key]"
+                  type="primary"
+                  size="small"
+                  @click="editing[key] = true"
+                >
+                  编辑
+                </el-button>
+                <el-button
+                  v-if="editing[key] && unsavedChanges[key]"
+                  type="success"
+                  size="small"
+                  @click="saveEdit(key)"
+                >
+                  保存
+                </el-button>
+                <el-button
+                  v-if="editing[key]"
+                  size="small"
+                  @click="editing[key] = false; fetchResults()"
+                >
+                  取消
+                </el-button>
+                <el-button
+                  v-if="!editing[key]"
+                  type="default"
+                  size="small"
+                  @click="copyText(results[key])"
+                >
                   复制
                 </el-button>
                 <el-button
@@ -155,6 +227,12 @@ onUnmounted(() => {
                   @click="regenerateStep(key)"
                 >
                   重新生成
+                </el-button>
+                <el-button
+                  size="small"
+                  @click="showHistory(key)"
+                >
+                  历史版本
                 </el-button>
               </div>
             </div>
@@ -186,6 +264,13 @@ onUnmounted(() => {
         :closable="false"
       />
     </div>
+
+    <HistoryDialog
+      v-model:visible="historyDialogVisible"
+      :task-id="Number(task?.id)"
+      :output-type="currentOutputType"
+      @rollback="handleRollback"
+    />
   </div>
 </template>
 
@@ -263,5 +348,30 @@ onUnmounted(() => {
 }
 .subtitle-section h4 {
   margin-bottom: 8px;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .task-result-view {
+    padding: 20px 12px;
+  }
+
+  .video-info {
+    flex-direction: column;
+  }
+
+  .cover {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16/9;
+  }
+
+  .result-actions {
+    flex-direction: column;
+  }
+
+  .result-actions .el-button {
+    width: 100%;
+  }
 }
 </style>

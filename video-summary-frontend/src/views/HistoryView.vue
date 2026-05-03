@@ -264,4 +264,33 @@ onMounted(() => {
   justify-content: center;
   margin-top: 20px;
 }
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .history-view {
+    padding: 20px 12px;
+  }
+
+  .history-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cover {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16/9;
+  }
+
+  .status-col {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+  }
+
+  .arrow-icon {
+    display: none;
+  }
+}
 </style>

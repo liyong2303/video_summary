@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import HistoryDialog from '@/components/HistoryDialog.vue'
 
 const url = ref('')
 const loading = ref(false)
@@ -12,6 +13,10 @@ const streamingStep = ref('')
 const activeTab = ref('summary')
 const error = ref('')
 const isStreaming = ref(false)
+const editing = ref<Record<string, boolean>>({})
+const unsavedChanges = ref<Record<string, boolean>>({})
+const historyDialogVisible = ref(false)
+const currentOutputType = ref('')
 
 function copyText(text: string) {
   navigator.clipboard.writeText(text)
@@ -50,6 +55,38 @@ async function regenerateStep(outputType: string) {
 function exportMarkdown() {
   if (!result.value) return
   window.open(`/api/video/${result.value.taskId}/export`, '_blank')
+}
+
+async function saveEdit(outputType: string) {
+  if (!result.value) return
+  try {
+    await axios.put(`/api/video/${result.value.taskId}/result/${outputType}`, {
+      content: results.value[outputType]
+    })
+    unsavedChanges.value[outputType] = false
+    editing.value[outputType] = false
+    ElMessage.success('保存成功')
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || '保存失败')
+  }
+}
+
+// 检测内容变化
+watch(() => results.value, (newVal, oldVal) => {
+  for (const key in newVal) {
+    if (oldVal[key] !== newVal[key]) {
+      unsavedChanges.value[key] = true
+    }
+  }
+}, { deep: true })
+
+function showHistory(outputType: string) {
+  currentOutputType.value = outputType
+  historyDialogVisible.value = true
+}
+
+function handleRollback() {
+  if (result.value) fetchResults(result.value.taskId)
 }
 
 async function submit() {
@@ -257,9 +294,44 @@ async function fetchResults(taskId: number) {
               :name="key"
             >
               <div v-if="results[key]" class="tab-content">
-                <div class="result-text">{{ results[key] }}</div>
+                <el-input
+                  v-model="results[key]"
+                  type="textarea"
+                  :rows="15"
+                  placeholder="点击编辑按钮修改内容..."
+                  :readonly="!editing[key]"
+                  @input="unsavedChanges[key] = true"
+                />
                 <div class="result-actions">
-                  <el-button type="primary" size="small" @click="copyText(results[key])">
+                  <el-button
+                    v-if="!editing[key]"
+                    type="primary"
+                    size="small"
+                    @click="editing[key] = true"
+                  >
+                    编辑
+                  </el-button>
+                  <el-button
+                    v-if="editing[key] && unsavedChanges[key]"
+                    type="success"
+                    size="small"
+                    @click="saveEdit(key)"
+                  >
+                    保存
+                  </el-button>
+                  <el-button
+                    v-if="editing[key]"
+                    size="small"
+                    @click="editing[key] = false; fetchResults(result.value.taskId)"
+                  >
+                    取消
+                  </el-button>
+                  <el-button
+                    v-if="!editing[key]"
+                    type="default"
+                    size="small"
+                    @click="copyText(results[key])"
+                  >
                     复制
                   </el-button>
                   <el-button
@@ -268,6 +340,12 @@ async function fetchResults(taskId: number) {
                     @click="regenerateStep(key)"
                   >
                     重新生成
+                  </el-button>
+                  <el-button
+                    size="small"
+                    @click="showHistory(key)"
+                  >
+                    历史版本
                   </el-button>
                 </div>
               </div>
@@ -302,6 +380,13 @@ async function fetchResults(taskId: number) {
           :closable="false"
         />
       </el-card>
+
+      <HistoryDialog
+        v-model:visible="historyDialogVisible"
+        :task-id="result?.taskId"
+        :output-type="currentOutputType"
+        @rollback="handleRollback"
+      />
     </div>
   </div>
 </template>
@@ -413,5 +498,34 @@ async function fetchResults(taskId: number) {
 }
 .subtitle-section h4 {
   margin-bottom: 8px;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .submit-view {
+    padding: 20px 12px;
+  }
+
+  .input-row {
+    flex-direction: column;
+  }
+
+  .video-info {
+    flex-direction: column;
+  }
+
+  .cover {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16/9;
+  }
+
+  .result-actions {
+    flex-direction: column;
+  }
+
+  .result-actions .el-button {
+    width: 100%;
+  }
 }
 </style>
