@@ -5,8 +5,10 @@ import com.videosummary.dto.HistoryPage;
 import com.videosummary.dto.SubmitRequest;
 import com.videosummary.dto.SubmitResponse;
 import com.videosummary.dto.TaskResponse;
+import com.videosummary.entity.TaskResultHistory;
 import com.videosummary.service.StreamService;
 import com.videosummary.service.TaskService;
+import com.videosummary.service.TaskResultHistoryService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -27,10 +29,13 @@ public class VideoController {
 
     private final TaskService taskService;
     private final StreamService streamService;
+    private final TaskResultHistoryService taskResultHistoryService;
 
-    public VideoController(TaskService taskService, StreamService streamService) {
+    public VideoController(TaskService taskService, StreamService streamService,
+                          TaskResultHistoryService taskResultHistoryService) {
         this.taskService = taskService;
         this.streamService = streamService;
+        this.taskResultHistoryService = taskResultHistoryService;
     }
 
     @PostMapping("/submit")
@@ -92,5 +97,30 @@ public class VideoController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + filename)
                 .contentType(MediaType.parseMediaType("text/markdown;charset=UTF-8"))
                 .body(markdown.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @PutMapping("/{taskId}/result/{outputType}")
+    public ApiResult<Void> updateResult(
+            @PathVariable Long taskId,
+            @PathVariable String outputType,
+            @RequestBody Map<String, String> body) {
+        taskService.updateResult(taskId, outputType, body.get("content"));
+        return ApiResult.success(null);
+    }
+
+    @GetMapping("/{taskId}/result/{outputType}/history")
+    public ApiResult<List<TaskResultHistory>> getResultHistory(
+            @PathVariable Long taskId,
+            @PathVariable String outputType) {
+        return ApiResult.success(taskResultHistoryService.getHistoryByTaskAndType(taskId, outputType));
+    }
+
+    @PostMapping("/{taskId}/result/{outputType}/rollback/{version}")
+    public ApiResult<Void> rollbackResult(
+            @PathVariable Long taskId,
+            @PathVariable String outputType,
+            @PathVariable Integer version) {
+        taskService.rollbackResult(taskId, outputType, version);
+        return ApiResult.success(null);
     }
 }

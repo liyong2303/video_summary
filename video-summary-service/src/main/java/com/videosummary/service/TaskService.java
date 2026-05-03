@@ -13,8 +13,10 @@ import com.videosummary.dto.SubmitResponse;
 import com.videosummary.dto.TaskResponse;
 import com.videosummary.entity.Task;
 import com.videosummary.entity.TaskResult;
+import com.videosummary.entity.TaskResultHistory;
 import com.videosummary.mapper.TaskMapper;
 import com.videosummary.mapper.TaskResultMapper;
+import com.videosummary.mapper.TaskResultHistoryMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,18 +42,24 @@ public class TaskService {
     private final BilibiliVideoService bilibiliVideoService;
     private final PipelineClient pipelineClient;
     private final QuotaService quotaService;
+    private final TaskResultHistoryService taskResultHistoryService;
+    private final TaskResultHistoryMapper taskResultHistoryMapper;
 
     private static final Pattern BV_PATTERN = Pattern.compile("BV[A-Za-z0-9]+");
     private static final Pattern BILIBILI_URL_PATTERN = Pattern.compile("bilibili\\.com/video/(BV[A-Za-z0-9]+)");
 
     public TaskService(TaskMapper taskMapper, TaskResultMapper taskResultMapper,
                        BilibiliVideoService bilibiliVideoService, PipelineClient pipelineClient,
-                       QuotaService quotaService) {
+                       QuotaService quotaService,
+                       TaskResultHistoryService taskResultHistoryService,
+                       TaskResultHistoryMapper taskResultHistoryMapper) {
         this.taskMapper = taskMapper;
         this.taskResultMapper = taskResultMapper;
         this.bilibiliVideoService = bilibiliVideoService;
         this.pipelineClient = pipelineClient;
         this.quotaService = quotaService;
+        this.taskResultHistoryService = taskResultHistoryService;
+        this.taskResultHistoryMapper = taskResultHistoryMapper;
     }
 
     public static String parseBvid(String url) {
@@ -425,5 +433,60 @@ public class TaskService {
             return results.get(0).getContent();
         }
         return null;
+    }
+
+    @Transactional
+    public void updateResult(Long taskId, String outputType, String content) {
+        // 查找现有结果
+        TaskResult result = taskResultMapper.selectOne(
+                new LambdaQueryWrapper<TaskResult>()
+                        .eq(TaskResult::getTaskId, taskId)
+                        .eq(TaskResult::getOutputType, outputType)
+        );
+        if (result == null) {
+            throw new IllegalArgumentException("结果不存在");
+        }
+
+        // 保存历史
+        taskResultHistoryService.saveHistory(result);
+
+        // 更新内容
+        result.setContent(content);
+        taskResultMapper.updateById(result);
+
+        log.info("Task {} updated result type {}", taskId, outputType);
+    }
+
+    @Transactional
+    public void rollbackResult(Long taskId, String outputType, Integer version) {
+        // 查找历史版本
+        TaskResultHistory history = taskResultHistoryMapper.selectOne(
+                new LambdaQueryWrapper<TaskResultHistory>()
+                        .eq(TaskResultHistory::getTaskId, taskId)
+                        .eq(TaskResultHistory::getOutputType, outputType)
+                        .eq(TaskResultHistory::getVersion, version)
+        );
+        if (history == null) {
+            throw new IllegalArgumentException("历史版本不存在");
+        }
+
+        // 查找当前结果
+        TaskResult result = taskResultMapper.selectOne(
+                new LambdaQueryWrapper<TaskResult>()
+                        .eq(TaskResult::getTaskId, taskId)
+                        .eq(TaskResult::getOutputType, outputType)
+        );
+        if (result == null) {
+            throw new IllegalArgumentException("结果不存在");
+        }
+
+        // 保存当前版本到历史
+        taskResultHistoryService.saveHistory(result);
+
+        // 回滚内容
+        result.setContent(history.getContent());
+        taskResultMapper.updateById(result);
+
+        log.info("Task {} rolled back result type {} to version {}", taskId, outputType, version);
     }
 }
