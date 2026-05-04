@@ -24,6 +24,16 @@ const router = createRouter({
       component: () => import('../views/CustomPromptView.vue'),
     },
     {
+      path: '/templates',
+      name: 'templates',
+      component: () => import('../views/TemplateView.vue'),
+    },
+    {
+      path: '/quick-actions',
+      name: 'quick-actions',
+      component: () => import('../views/QuickActionView.vue'),
+    },
+    {
       path: '/task/:id',
       name: 'task',
       component: () => import('../views/TaskResultView.vue'),
