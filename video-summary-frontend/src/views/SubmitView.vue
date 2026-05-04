@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import HistoryDialog from '@/components/HistoryDialog.vue'
+import { getTemplates, type Template } from '@/api/template'
 
 const url = ref('')
 const style = ref('concise')
@@ -25,6 +26,28 @@ const currentOutputType = ref('')
 const isBatchMode = ref(false)
 const batchUrls = ref('')
 const batchResult = ref<any>(null)
+
+// Template
+const templates = ref<Template[]>([])
+const selectedTemplate = ref<number | null>(null)
+
+onMounted(async () => {
+  try {
+    templates.value = await getTemplates()
+  } catch {
+    // Ignore error
+  }
+})
+
+watch(selectedTemplate, (newTemplateId) => {
+  if (newTemplateId !== null) {
+    const template = templates.value.find(t => t.id === newTemplateId)
+    if (template) {
+      style.value = template.style
+      length.value = template.length
+    }
+  }
+})
 
 const stepMessages: Record<string, string> = {
   extract: '正在提取B站字幕...',
@@ -322,6 +345,23 @@ async function fetchResults(taskId: number) {
         </div>
       </div>
 
+      <div v-if="templates.length > 0" class="template-select">
+        <span class="template-label">选择模板：</span>
+        <el-select v-model="selectedTemplate" placeholder="选择模板" clearable style="width: 300px">
+          <el-option
+            v-for="t in templates"
+            :key="t.id"
+            :label="t.name"
+            :value="t.id"
+          >
+            <span style="float: left">{{ t.name }}</span>
+            <span style="float: right; color: #8492a6; font-size: 13px">
+              {{ t.categoryName || '未分类' }}
+            </span>
+          </el-option>
+        </el-select>
+      </div>
+
       <div class="mode-toggle">
         <el-switch
           v-model="isBatchMode"
@@ -574,6 +614,17 @@ async function fetchResults(taskId: number) {
 }
 .input-row .el-input {
   flex: 1;
+}
+.template-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.template-label {
+  font-size: 14px;
+  color: #666;
 }
 .options-row {
   display: flex;
