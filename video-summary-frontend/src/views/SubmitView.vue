@@ -21,6 +21,11 @@ const unsavedChanges = ref<Record<string, boolean>>({})
 const historyDialogVisible = ref(false)
 const currentOutputType = ref('')
 
+// Batch processing
+const isBatchMode = ref(false)
+const batchUrls = ref('')
+const batchResult = ref<any>(null)
+
 const stepMessages: Record<string, string> = {
   extract: '正在提取B站字幕...',
   summary: '正在生成总结...',
@@ -149,6 +154,47 @@ async function submit() {
   }
 }
 
+async function batchSubmit() {
+  if (!batchUrls.value.trim()) return
+
+  const urls = batchUrls.value.trim().split('\n').map(u => u.trim()).filter(u => u)
+  if (urls.length === 0) {
+    ElMessage.warning('请输入视频链接')
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+  batchResult.value = null
+
+  try {
+    const res = await axios.post('/api/video/batch-submit', {
+      urls: urls,
+      style: style.value,
+      length: length.value
+    })
+    if (res.data.code !== 0) {
+      error.value = res.data.message
+      return
+    }
+    batchResult.value = res.data.data
+    ElMessage.success('批量提交成功')
+  } catch (e: any) {
+    if (e.response?.data?.message) {
+      error.value = e.response.data.message
+    } else {
+      error.value = '批量提交失败，请稍后重试'
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleBatchResultClick(taskId: number) {
+  // Navigate to task result page
+  window.location.href = `/task/${taskId}`
+}
+
 function connectSSE(taskId: number): Promise<void> {
   return new Promise((resolve) => {
     const eventSource = new EventSource(`/api/video/${taskId}/stream`)
@@ -256,12 +302,32 @@ async function fetchResults(taskId: number) {
       <p class="subtitle">总结、文章、学习卡片、小红书文案，30秒内全部搞定</p>
 
       <div class="input-row">
-        <el-input
-          v-model="url"
-          placeholder="请输入BV号或B站视频链接..."
-          size="large"
-          @keyup.enter="submit"
-          :disabled="loading"
+        <div v-if="!isBatchMode">
+          <el-input
+            v-model="url"
+            placeholder="请输入BV号或B站视频链接..."
+            size="large"
+            @keyup.enter="submit"
+            :disabled="loading"
+          />
+        </div>
+        <div v-else>
+          <el-input
+            v-model="batchUrls"
+            type="textarea"
+            :rows="5"
+            placeholder="请输入视频链接（每行一个，最多5个）&#10;示例：&#10;BV1xx411c7mD&#10;https://www.bilibili.com/video/BV1xx411c7mD"
+            :disabled="loading"
+          />
+        </div>
+      </div>
+
+      <div class="mode-toggle">
+        <el-switch
+          v-model="isBatchMode"
+          active-text="批量模式"
+          inactive-text="单个模式"
+          @change="() => { url = ''; batchUrls = '' }"
         />
       </div>
 
@@ -289,10 +355,10 @@ async function fetchResults(taskId: number) {
           type="primary"
           size="large"
           :loading="loading"
-          @click="submit"
+          @click="isBatchMode ? batchSubmit() : submit()"
           style="min-width: 200px"
         >
-          生成内容
+          {{ isBatchMode ? '批量生成' : '生成内容' }}
         </el-button>
       </div>
 
@@ -437,6 +503,46 @@ async function fetchResults(taskId: number) {
         :output-type="currentOutputType"
         @rollback="handleRollback"
       />
+
+      <!-- Batch Results -->
+      <el-card v-if="batchResult" class="batch-result-card" shadow="never">
+        <div class="batch-header">
+          <h3>批量生成结果</h3>
+          <el-tag size="small">{{ batchResult.status }}</el-tag>
+        </div>
+        <div class="batch-list">
+          <div
+            v-for="(task, index) in batchResult.tasks"
+            :key="index"
+            class="batch-item"
+          >
+            <div class="batch-item-info">
+              <span class="batch-index">{{ index + 1 }}.</span>
+              <span class="batch-url">{{ task.url }}</span>
+            </div>
+            <div class="batch-item-status">
+              <el-tag
+                :type="task.status === 'completed' ? 'success' : task.status === 'failed' ? 'danger' : 'warning'"
+                size="small"
+              >
+                {{ task.status }}
+              </el-tag>
+              <el-button
+                v-if="task.taskId"
+                link
+                type="primary"
+                size="small"
+                @click="handleBatchResultClick(task.taskId)"
+              >
+                查看详情
+              </el-button>
+            </div>
+            <div v-if="task.error" class="batch-item-error">
+              <el-alert :title="task.error" type="error" :closable="false" />
+            </div>
+          </div>
+        </div>
+      </el-card>
     </div>
   </div>
 </template>
@@ -489,6 +595,11 @@ async function fetchResults(taskId: number) {
 .submit-row {
   display: flex;
   justify-content: center;
+}
+.mode-toggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
 }
 .streaming-indicator {
   margin-top: 16px;
@@ -570,6 +681,52 @@ async function fetchResults(taskId: number) {
 }
 .subtitle-section h4 {
   margin-bottom: 8px;
+}
+.batch-result-card {
+  margin-top: 24px;
+}
+.batch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.batch-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.batch-item {
+  border: 1px solid #e8ecf1;
+  border-radius: 8px;
+  padding: 12px;
+}
+.batch-item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.batch-index {
+  font-weight: 600;
+  color: #666;
+}
+.batch-url {
+  font-family: monospace;
+  font-size: 13px;
+}
+.batch-item-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.batch-item-error {
+  margin-top: 8px;
 }
 
 /* 移动端适配 */
