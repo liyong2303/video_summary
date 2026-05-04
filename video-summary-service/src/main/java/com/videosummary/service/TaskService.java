@@ -7,6 +7,7 @@ import com.videosummary.bilibili.dto.SubtitleContent;
 import com.videosummary.bilibili.dto.VideoInfo;
 import com.videosummary.client.PipelineClient;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.videosummary.dto.BatchSubmitResponse;
 import com.videosummary.dto.HistoryItem;
 import com.videosummary.dto.HistoryPage;
 import com.videosummary.dto.SubmitResponse;
@@ -29,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -492,5 +494,42 @@ public class TaskService {
         taskResultMapper.updateById(result);
 
         log.info("Task {} rolled back result type {} to version {}", taskId, outputType, version);
+    }
+
+    @Transactional
+    public BatchSubmitResponse batchSubmit(List<String> urls, String style, String length) {
+        String batchId = UUID.randomUUID().toString();
+        List<BatchSubmitResponse.BatchTaskItem> taskItems = new ArrayList<>();
+
+        for (String url : urls) {
+            try {
+                SubmitResponse response = submit(url, style, length);
+                BatchSubmitResponse.BatchTaskItem item = BatchSubmitResponse.BatchTaskItem.builder()
+                        .taskId(response.getTaskId())
+                        .url(url)
+                        .status(response.getStatus())
+                        .build();
+                taskItems.add(item);
+
+                if (!response.getIsExisting()) {
+                    processTask(response.getTaskId(), style, length);
+                    Task updatedTask = taskMapper.selectById(response.getTaskId());
+                    item.setStatus(updatedTask.getStatus());
+                }
+            } catch (Exception e) {
+                BatchSubmitResponse.BatchTaskItem item = BatchSubmitResponse.BatchTaskItem.builder()
+                        .url(url)
+                        .status("failed")
+                        .error(e.getMessage())
+                        .build();
+                taskItems.add(item);
+            }
+        }
+
+        return BatchSubmitResponse.builder()
+                .batchId(batchId)
+                .tasks(taskItems)
+                .status("completed")
+                .build();
     }
 }
