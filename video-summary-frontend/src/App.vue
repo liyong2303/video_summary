@@ -10,6 +10,8 @@ const currentNav = computed(() => {
   if (route.path === '/history') return 'history'
   if (route.path === '/settings') return 'settings'
   if (route.path === '/custom-prompts') return 'custom-prompts'
+  if (route.path === '/templates') return 'templates'
+  if (route.path === '/quick-actions') return 'quick-actions'
   return 'home'
 })
 
@@ -73,6 +75,20 @@ const quotaText = computed(() => {
           @click="router.push('/custom-prompts')"
         >
           自定义Prompt
+        </span>
+        <span
+          class="nav-link"
+          :class="{ active: currentNav === 'templates' }"
+          @click="router.push('/templates')"
+        >
+          模板
+        </span>
+        <span
+          class="nav-link"
+          :class="{ active: currentNav === 'quick-actions' }"
+          @click="router.push('/quick-actions')"
+        >
+          快捷操作
         </span>
         <span class="quota-badge" v-if="userInfo && userInfo.dailyLimit !== -1">{{ quotaText }}</span>
         <span class="nav-link" @click="logout">退出</span>
