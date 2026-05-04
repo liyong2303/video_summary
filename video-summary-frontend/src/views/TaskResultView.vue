@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import HistoryDialog from '@/components/HistoryDialog.vue'
+import { getQuickActions, type QuickAction } from '@/api/quickAction'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,8 +17,14 @@ const editing = ref<Record<string, boolean>>({})
 const unsavedChanges = ref<Record<string, boolean>>({})
 const historyDialogVisible = ref(false)
 const currentOutputType = ref('')
+const quickActions = ref<QuickAction[]>([])
 
 let pollTimer: any = null
+
+// Filter quick actions for single task scope
+const singleTaskActions = computed(() =>
+  quickActions.value.filter(a => a.applyScope === 'single')
+)
 
 const tabLabels: Record<string, string> = {
   summary: '总结',
@@ -118,7 +125,44 @@ function handleRollback() {
   fetchResults()
 }
 
-onMounted(() => {
+async function loadQuickActions() {
+  try {
+    quickActions.value = await getQuickActions()
+  } catch {
+    // Ignore error
+  }
+}
+
+async function executeQuickAction(action: QuickAction) {
+  try {
+    const id = route.params.id
+    for (const step of action.steps) {
+      switch (step.action) {
+        case 'copy':
+          if (activeTab.value && results.value[activeTab.value]) {
+            navigator.clipboard.writeText(results.value[activeTab.value])
+            ElMessage.success('已复制')
+          }
+          break
+        case 'export':
+          exportMarkdown()
+          break
+        case 'regenerate':
+          if (activeTab.value) {
+            await regenerateStep(activeTab.value)
+          }
+          break
+      }
+    }
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || '执行快捷操作失败')
+  }
+}
+
+onMounted(async () => {
+  await loadQuickActions()
+  fetchTask()
+  fetchResults()
   fetchTask()
   fetchResults()
   // Poll every 3s if task is still processing
@@ -169,9 +213,25 @@ onUnmounted(() => {
       <div v-if="Object.keys(results).length > 0" class="results-section">
         <div class="results-header">
           <span class="results-title">生成结果</span>
-          <el-button size="small" @click="exportMarkdown">
-            导出 Markdown
-          </el-button>
+          <div class="header-actions">
+            <el-dropdown v-if="singleTaskActions.length > 0" split-button type="primary" size="small" @click="exportMarkdown">
+              导出 Markdown
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-for="action in singleTaskActions"
+                    :key="action.id"
+                    @click="executeQuickAction(action)"
+                  >
+                    {{ action.name }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <el-button v-else size="small" @click="exportMarkdown">
+              导出 Markdown
+            </el-button>
+          </div>
         </div>
         <el-tabs v-model="activeTab">
           <el-tab-pane
@@ -316,6 +376,10 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+}
+.header-actions {
+  display: flex;
+  gap: 8px;
 }
 .results-title {
   font-size: 16px;

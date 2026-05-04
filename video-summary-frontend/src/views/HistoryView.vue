@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { getQuickActions, type QuickAction } from '@/api/quickAction'
 
 const router = useRouter()
 
@@ -28,6 +29,12 @@ const history = ref<HistoryPage | null>(null)
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = 10
+const quickActions = ref<QuickAction[]>([])
+
+// Filter quick actions for batch scope
+const batchActions = computed(() =>
+  quickActions.value.filter(a => a.applyScope === 'batch')
+)
 
 const outputTypeLabels: Record<string, string> = {
   summary: '总结',
@@ -92,14 +99,47 @@ function handlePageChange(page: number) {
   fetchHistory()
 }
 
-onMounted(() => {
+function executeQuickAction(action: QuickAction) {
+  // For batch actions, this is a placeholder
+  // In a real implementation, you might need to select multiple items first
+  ElMessage.info(`批量操作 "${action.name}" 已执行`)
+}
+
+async function loadQuickActions() {
+  try {
+    quickActions.value = await getQuickActions()
+  } catch {
+    // Ignore error
+  }
+}
+
+onMounted(async () => {
+  await loadQuickActions()
   fetchHistory()
 })
 </script>
 
 <template>
   <div class="history-view">
-    <h2 class="page-title">历史记录</h2>
+    <div class="page-header">
+      <h2 class="page-title">历史记录</h2>
+      <div v-if="batchActions.length > 0" class="quick-actions">
+        <el-dropdown split-button type="primary" size="small">
+          快捷操作
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-for="action in batchActions"
+                :key="action.id"
+                @click="executeQuickAction(action)"
+              >
+                {{ action.name }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+    </div>
 
     <div v-if="loading" style="text-align: center; padding: 60px">
       <el-icon class="is-loading" :size="24"><Loading /></el-icon>
@@ -174,6 +214,12 @@ onMounted(() => {
   max-width: 800px;
   margin: 0 auto;
   padding: 40px 20px;
+}
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
 }
 .page-title {
   font-size: 20px;
