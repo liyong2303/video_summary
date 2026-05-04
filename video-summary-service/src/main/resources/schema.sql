@@ -90,3 +90,39 @@ CREATE TABLE IF NOT EXISTS custom_prompt (
     INDEX idx_user_id (user_id),
     INDEX idx_output_type (output_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户自定义Prompt表';
+
+CREATE TABLE IF NOT EXISTS template_category (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    name VARCHAR(100) NOT NULL COMMENT '分类名称',
+    sort_order INT DEFAULT 0 COMMENT '排序顺序',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='模板分类表';
+
+CREATE TABLE IF NOT EXISTS template (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    category_id BIGINT COMMENT '分类ID',
+    name VARCHAR(200) NOT NULL COMMENT '模板名称',
+    style VARCHAR(20) NOT NULL DEFAULT 'concise' COMMENT '生成风格: academic/casual/concise',
+    length VARCHAR(20) NOT NULL DEFAULT 'standard' COMMENT '内容长度: short/standard/long',
+    output_types JSON NOT NULL COMMENT '输出类型: ["summary", "article", "card", "xiaohongshu"]',
+    custom_prompt_ids JSON COMMENT '关联的自定义Prompt ID列表',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_user_id (user_id),
+    INDEX idx_category_id (category_id),
+    FOREIGN KEY (category_id) REFERENCES template_category(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='模板表';
+
+CREATE TABLE IF NOT EXISTS quick_action (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    name VARCHAR(200) NOT NULL COMMENT '快捷操作名称',
+    steps JSON NOT NULL COMMENT '操作步骤列表',
+    apply_scope VARCHAR(20) NOT NULL DEFAULT 'single' COMMENT '应用范围: single/batch',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='快捷操作表';
