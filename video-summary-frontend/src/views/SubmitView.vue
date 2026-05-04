@@ -557,7 +557,7 @@ async function fetchResults(taskId: number) {
             class="batch-item"
           >
             <div class="batch-item-info">
-              <span class="batch-index">{{ index + 1 }}.</span>
+              <span class="batch-index">{{ Number(index) + 1 }}.</span>
               <span class="batch-url">{{ task.url }}</span>
             </div>
             <div class="batch-item-status">

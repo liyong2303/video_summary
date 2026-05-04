@@ -135,7 +135,6 @@ async function loadQuickActions() {
 
 async function executeQuickAction(action: QuickAction) {
   try {
-    const id = route.params.id
     for (const step of action.steps) {
       switch (step.action) {
         case 'copy':

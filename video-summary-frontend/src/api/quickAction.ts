@@ -1,4 +1,4 @@
-import request from './request'
+import axios from 'axios'
 
 export interface QuickAction {
   id: number
@@ -16,38 +16,21 @@ export interface QuickActionRequest {
 }
 
 export function getQuickActions() {
-  return request<QuickAction[]>({
-    url: '/api/quick-actions',
-    method: 'get'
-  })
+  return axios.get<{ code: number; data: QuickAction[] }>('/api/quick-actions').then(res => res.data.data)
 }
 
 export function getQuickAction(id: number) {
-  return request<QuickAction>({
-    url: `/api/quick-actions/${id}`,
-    method: 'get'
-  })
+  return axios.get<{ code: number; data: QuickAction }>(`/api/quick-actions/${id}`).then(res => res.data.data)
 }
 
 export function createQuickAction(data: QuickActionRequest) {
-  return request<QuickAction>({
-    url: '/api/quick-actions',
-    method: 'post',
-    data
-  })
+  return axios.post<{ code: number; data: QuickAction }>('/api/quick-actions', data).then(res => res.data.data)
 }
 
 export function updateQuickAction(id: number, data: QuickActionRequest) {
-  return request<QuickAction>({
-    url: `/api/quick-actions/${id}`,
-    method: 'put',
-    data
-  })
+  return axios.put<{ code: number; data: QuickAction }>(`/api/quick-actions/${id}`, data).then(res => res.data.data)
 }
 
 export function deleteQuickAction(id: number) {
-  return request<void>({
-    url: `/api/quick-actions/${id}`,
-    method: 'delete'
-  })
+  return axios.delete<{ code: number; data: void }>(`/api/quick-actions/${id}`).then(res => res.data.data)
 }

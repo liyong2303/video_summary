@@ -35,11 +35,6 @@ const actionOptions = [
   { label: '重新生成', value: 'regenerate' }
 ]
 
-const scopeOptions = [
-  { label: '单个任务', value: 'single' },
-  { label: '批量任务', value: 'batch' }
-]
-
 onMounted(async () => {
   await loadQuickActions()
 })

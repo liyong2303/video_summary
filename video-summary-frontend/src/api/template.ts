@@ -1,4 +1,4 @@
-import request from './request'
+import axios from 'axios'
 
 export interface Template {
   id: number
@@ -6,8 +6,8 @@ export interface Template {
   style: string
   length: string
   outputTypes: string[]
-  customPromptIds?: number[]
-  categoryId?: number | null
+  customPromptIds: number[]
+  categoryId: number | null
   categoryName?: string
   createdAt?: string
   updatedAt?: string
@@ -32,68 +32,37 @@ export interface TemplateCategory {
 }
 
 export function getTemplates() {
-  return request<Template[]>({
-    url: '/api/templates',
-    method: 'get'
-  })
+  return axios.get<{ code: number; data: Template[] }>('/api/templates').then(res => res.data.data)
 }
 
 export function getTemplate(id: number) {
-  return request<Template>({
-    url: `/api/templates/${id}`,
-    method: 'get'
-  })
+  return axios.get<{ code: number; data: Template }>(`/api/templates/${id}`).then(res => res.data.data)
 }
 
 export function createTemplate(data: TemplateRequest) {
-  return request<Template>({
-    url: '/api/templates',
-    method: 'post',
-    data
-  })
+  return axios.post<{ code: number; data: Template }>('/api/templates', data).then(res => res.data.data)
 }
 
 export function updateTemplate(id: number, data: TemplateRequest) {
-  return request<Template>({
-    url: `/api/templates/${id}`,
-    method: 'put',
-    data
-  })
+  return axios.put<{ code: number; data: Template }>(`/api/templates/${id}`, data).then(res => res.data.data)
 }
 
 export function deleteTemplate(id: number) {
-  return request<void>({
-    url: `/api/templates/${id}`,
-    method: 'delete'
-  })
+  return axios.delete<{ code: number; data: void }>(`/api/templates/${id}`).then(res => res.data.data)
 }
 
 export function getTemplateCategories() {
-  return request<TemplateCategory[]>({
-    url: '/api/template-categories',
-    method: 'get'
-  })
+  return axios.get<{ code: number; data: TemplateCategory[] }>('/api/template-categories').then(res => res.data.data)
 }
 
 export function createCategory(data: { name: string; sortOrder?: number }) {
-  return request<TemplateCategory>({
-    url: '/api/template-categories',
-    method: 'post',
-    data
-  })
+  return axios.post<{ code: number; data: TemplateCategory }>('/api/template-categories', data).then(res => res.data.data)
 }
 
 export function updateCategory(id: number, data: { name: string; sortOrder?: number }) {
-  return request<void>({
-    url: `/api/template-categories/${id}`,
-    method: 'put',
-    data: { id, ...data }
-  })
+  return axios.put<{ code: number; data: void }>(`/api/template-categories/${id}`, { id, ...data }).then(res => res.data.data)
 }
 
 export function deleteCategory(id: number) {
-  return request<void>({
-    url: `/api/template-categories/${id}`,
-    method: 'delete'
-  })
+  return axios.delete<{ code: number; data: void }>(`/api/template-categories/${id}`).then(res => res.data.data)
 }
