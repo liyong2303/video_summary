@@ -1,6 +1,8 @@
 package com.videosummary.controller;
 
 import com.videosummary.dto.ApiResult;
+import com.videosummary.dto.BatchSubmitRequest;
+import com.videosummary.dto.BatchSubmitResponse;
 import com.videosummary.dto.HistoryPage;
 import com.videosummary.dto.SubmitRequest;
 import com.videosummary.dto.SubmitResponse;
@@ -86,6 +88,16 @@ public class VideoController {
     public ApiResult<Void> regenerate(@PathVariable Long taskId, @PathVariable String outputType) {
         taskService.regenerate(taskId, outputType);
         return ApiResult.success(null);
+    }
+
+    @PostMapping("/batch-submit")
+    public ApiResult<BatchSubmitResponse> batchSubmit(@RequestBody @Valid BatchSubmitRequest request) {
+        BatchSubmitResponse response = taskService.batchSubmit(
+                request.getUrls(),
+                request.getStyle(),
+                request.getLength()
+        );
+        return ApiResult.success(response);
     }
 
     @GetMapping("/{taskId}/export")
