@@ -300,57 +300,51 @@ public class TaskService {
         taskMapper.updateById(task);
     }
 
+    private Map<String, Object> convertTaskResultToMap(TaskResult result) {
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("outputType", result.getOutputType());
+        map.put("content", result.getContent());
+        map.put("status", result.getStatus());
+        map.put("modelUsed", result.getModelUsed());
+        map.put("tokensUsed", result.getOutputTokens());
+        return map;
+    }
+
     public List<Map<String, Object>> getTaskResults(Long taskId) {
         List<TaskResult> results = taskResultMapper.selectList(
                 new LambdaQueryWrapper<TaskResult>().eq(TaskResult::getTaskId, taskId)
         );
-        return results.stream().map(r -> {
-            Map<String, Object> map = new java.util.HashMap<>();
-            map.put("outputType", r.getOutputType());
-            map.put("content", r.getContent());
-            map.put("status", r.getStatus());
-            map.put("modelUsed", r.getModelUsed());
-            map.put("tokensUsed", r.getOutputTokens());
-            return map;
-        }).toList();
+        return results.stream()
+                .map(this::convertTaskResultToMap)
+                .toList();
     }
 
     public Map<String, Object> getMindmap(Long taskId) {
-        List<TaskResult> results = taskResultMapper.selectList(
+        log.debug("Fetching mindmap for task {}", taskId);
+        TaskResult result = taskResultMapper.selectOne(
                 new LambdaQueryWrapper<TaskResult>()
                         .eq(TaskResult::getTaskId, taskId)
                         .eq(TaskResult::getOutputType, TaskResult.OutputType.MINDMAP)
         );
-        if (results.isEmpty()) {
+        if (result == null) {
+            log.debug("Mindmap not found for task {}", taskId);
             return null;
         }
-        TaskResult result = results.get(0);
-        Map<String, Object> map = new java.util.HashMap<>();
-        map.put("outputType", result.getOutputType());
-        map.put("content", result.getContent());
-        map.put("status", result.getStatus());
-        map.put("modelUsed", result.getModelUsed());
-        map.put("tokensUsed", result.getOutputTokens());
-        return map;
+        return convertTaskResultToMap(result);
     }
 
     public Map<String, Object> getScript(Long taskId) {
-        List<TaskResult> results = taskResultMapper.selectList(
+        log.debug("Fetching script for task {}", taskId);
+        TaskResult result = taskResultMapper.selectOne(
                 new LambdaQueryWrapper<TaskResult>()
                         .eq(TaskResult::getTaskId, taskId)
                         .eq(TaskResult::getOutputType, TaskResult.OutputType.SCRIPT)
         );
-        if (results.isEmpty()) {
+        if (result == null) {
+            log.debug("Script not found for task {}", taskId);
             return null;
         }
-        TaskResult result = results.get(0);
-        Map<String, Object> map = new java.util.HashMap<>();
-        map.put("outputType", result.getOutputType());
-        map.put("content", result.getContent());
-        map.put("status", result.getStatus());
-        map.put("modelUsed", result.getModelUsed());
-        map.put("tokensUsed", result.getOutputTokens());
-        return map;
+        return convertTaskResultToMap(result);
     }
 
     public void cancelTask(Long taskId) {
