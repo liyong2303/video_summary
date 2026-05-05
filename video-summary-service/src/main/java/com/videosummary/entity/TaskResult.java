@@ -35,6 +35,8 @@ public class TaskResult {
         public static final String ARTICLE = "article";
         public static final String CARD = "card";
         public static final String XIAOHONGSHU = "xiaohongshu";
+        public static final String MINDMAP = "mindmap";
+        public static final String SCRIPT = "script";
     }
 
     public static class Status {
