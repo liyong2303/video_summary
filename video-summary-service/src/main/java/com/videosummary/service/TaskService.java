@@ -239,6 +239,39 @@ public class TaskService {
                 }
             }
 
+            // Step 4: Generate mindmap and script
+            PipelineClient.PipelineResult mindmapResult = pipelineClient.executeSingleStep(
+                    String.valueOf(taskId), subtitleText, "mindmap", "concise", "standard"
+            );
+            TaskResult mindmapResultTask = TaskResult.builder()
+                    .taskId(taskId)
+                    .outputType(TaskResult.OutputType.MINDMAP)
+                    .content(mindmapResult.getStepResults().get("mindmap").getContent())
+                    .modelUsed("deepseek-chat")
+                    .outputTokens(mindmapResult.getStepResults().get("mindmap").getTokensUsed())
+                    .status(mindmapResult.getStepResults().get("mindmap").getStatus())
+                    .build();
+            taskResultMapper.insert(mindmapResultTask);
+            if (!"completed".equals(mindmapResult.getStepResults().get("mindmap").getStatus())) {
+                allCompleted = false;
+            }
+
+            PipelineClient.PipelineResult scriptResult = pipelineClient.executeSingleStep(
+                    String.valueOf(taskId), subtitleText, "script", "professional", "standard"
+            );
+            TaskResult scriptResultTask = TaskResult.builder()
+                    .taskId(taskId)
+                    .outputType(TaskResult.OutputType.SCRIPT)
+                    .content(scriptResult.getStepResults().get("script").getContent())
+                    .modelUsed("deepseek-chat")
+                    .outputTokens(scriptResult.getStepResults().get("script").getTokensUsed())
+                    .status(scriptResult.getStepResults().get("script").getStatus())
+                    .build();
+            taskResultMapper.insert(scriptResultTask);
+            if (!"completed".equals(scriptResult.getStepResults().get("script").getStatus())) {
+                allCompleted = false;
+            }
+
             // Update task status
             if (allCompleted) {
                 task.setStatus(Task.Status.COMPLETED);
