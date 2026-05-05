@@ -58,6 +58,24 @@ public class VideoController {
         return ApiResult.success(taskService.getTask(taskId));
     }
 
+    @GetMapping("/{taskId}/mindmap")
+    public ApiResult<Map<String, Object>> getMindmap(@PathVariable Long taskId) {
+        Map<String, Object> result = taskService.getMindmap(taskId);
+        if (result == null) {
+            return ApiResult.error(404, "思维导图未找到");
+        }
+        return ApiResult.success(result);
+    }
+
+    @GetMapping("/{taskId}/script")
+    public ApiResult<Map<String, Object>> getScript(@PathVariable Long taskId) {
+        Map<String, Object> result = taskService.getScript(taskId);
+        if (result == null) {
+            return ApiResult.error(404, "视频脚本未找到");
+        }
+        return ApiResult.success(result);
+    }
+
     @GetMapping("/{taskId}/results")
     public ApiResult<List<Map<String, Object>>> getTaskResults(@PathVariable Long taskId) {
         return ApiResult.success(taskService.getTaskResults(taskId));

@@ -315,6 +315,44 @@ public class TaskService {
         }).toList();
     }
 
+    public Map<String, Object> getMindmap(Long taskId) {
+        List<TaskResult> results = taskResultMapper.selectList(
+                new LambdaQueryWrapper<TaskResult>()
+                        .eq(TaskResult::getTaskId, taskId)
+                        .eq(TaskResult::getOutputType, TaskResult.OutputType.MINDMAP)
+        );
+        if (results.isEmpty()) {
+            return null;
+        }
+        TaskResult result = results.get(0);
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("outputType", result.getOutputType());
+        map.put("content", result.getContent());
+        map.put("status", result.getStatus());
+        map.put("modelUsed", result.getModelUsed());
+        map.put("tokensUsed", result.getOutputTokens());
+        return map;
+    }
+
+    public Map<String, Object> getScript(Long taskId) {
+        List<TaskResult> results = taskResultMapper.selectList(
+                new LambdaQueryWrapper<TaskResult>()
+                        .eq(TaskResult::getTaskId, taskId)
+                        .eq(TaskResult::getOutputType, TaskResult.OutputType.SCRIPT)
+        );
+        if (results.isEmpty()) {
+            return null;
+        }
+        TaskResult result = results.get(0);
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("outputType", result.getOutputType());
+        map.put("content", result.getContent());
+        map.put("status", result.getStatus());
+        map.put("modelUsed", result.getModelUsed());
+        map.put("tokensUsed", result.getOutputTokens());
+        return map;
+    }
+
     public void cancelTask(Long taskId) {
         Task task = taskMapper.selectById(taskId);
         if (task != null && (Task.Status.PENDING.equals(task.getStatus())
