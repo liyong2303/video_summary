@@ -243,32 +243,40 @@ public class TaskService {
             PipelineClient.PipelineResult mindmapResult = pipelineClient.executeSingleStep(
                     String.valueOf(taskId), subtitleText, "mindmap", "concise", "standard"
             );
+            PipelineClient.PipelineStepResult mindmapStep = mindmapResult.getStepResults().get("mindmap");
+            if (mindmapStep == null) {
+                throw new RuntimeException("Mindmap step result is null");
+            }
             TaskResult mindmapResultTask = TaskResult.builder()
                     .taskId(taskId)
                     .outputType(TaskResult.OutputType.MINDMAP)
-                    .content(mindmapResult.getStepResults().get("mindmap").getContent())
+                    .content(mindmapStep.getContent())
                     .modelUsed("deepseek-chat")
-                    .outputTokens(mindmapResult.getStepResults().get("mindmap").getTokensUsed())
-                    .status(mindmapResult.getStepResults().get("mindmap").getStatus())
+                    .outputTokens(mindmapStep.getTokensUsed())
+                    .status(mindmapStep.getStatus())
                     .build();
             taskResultMapper.insert(mindmapResultTask);
-            if (!"completed".equals(mindmapResult.getStepResults().get("mindmap").getStatus())) {
+            if (!"completed".equals(mindmapStep.getStatus())) {
                 allCompleted = false;
             }
 
             PipelineClient.PipelineResult scriptResult = pipelineClient.executeSingleStep(
                     String.valueOf(taskId), subtitleText, "script", "professional", "standard"
             );
+            PipelineClient.PipelineStepResult scriptStep = scriptResult.getStepResults().get("script");
+            if (scriptStep == null) {
+                throw new RuntimeException("Script step result is null");
+            }
             TaskResult scriptResultTask = TaskResult.builder()
                     .taskId(taskId)
                     .outputType(TaskResult.OutputType.SCRIPT)
-                    .content(scriptResult.getStepResults().get("script").getContent())
+                    .content(scriptStep.getContent())
                     .modelUsed("deepseek-chat")
-                    .outputTokens(scriptResult.getStepResults().get("script").getTokensUsed())
-                    .status(scriptResult.getStepResults().get("script").getStatus())
+                    .outputTokens(scriptStep.getTokensUsed())
+                    .status(scriptStep.getStatus())
                     .build();
             taskResultMapper.insert(scriptResultTask);
-            if (!"completed".equals(scriptResult.getStepResults().get("script").getStatus())) {
+            if (!"completed".equals(scriptStep.getStatus())) {
                 allCompleted = false;
             }
 
