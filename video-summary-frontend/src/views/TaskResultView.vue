@@ -31,6 +31,8 @@ const tabLabels: Record<string, string> = {
   article: '文章',
   card: '学习卡片',
   xiaohongshu: '小红书文案',
+  mindmap: '思维导图',
+  script: '视频脚本',
 }
 
 function formatDuration(seconds: number): string {
